@@ -1,7 +1,19 @@
 package entity;
 
+import jakarta.persistence.*;
 import java.io.Serializable;
 
+@SqlResultSetMapping(
+		name = "TrainJourneyRankingMapping",
+		classes = @ConstructorResult(
+				targetClass = TrainJourneyRanking.class,
+				columns = {
+						@ColumnResult(name = "TrainJourneyName", type = String.class),
+						@ColumnResult(name = "TrainNumber", type = String.class),
+						@ColumnResult(name = "TotalRevenue", type = Long.class)
+				}
+		)
+)
 public class TrainJourneyRanking implements Serializable {
 
 	private String trainJourneyName;
@@ -9,7 +21,6 @@ public class TrainJourneyRanking implements Serializable {
 	private long totalRevenue;
 
 	public TrainJourneyRanking(String trainJourneyName, String trainNumber, long totalRevenue) {
-		super();
 		this.trainJourneyName = trainJourneyName;
 		this.trainNumber = trainNumber;
 		this.totalRevenue = totalRevenue;
@@ -41,8 +52,8 @@ public class TrainJourneyRanking implements Serializable {
 
 	@Override
 	public String toString() {
-		return "TrainJourneyRanking [trainJourneyName=" + trainJourneyName + ", trainNumber=" + trainNumber
-				+ ", totalRevenue=" + totalRevenue + "]";
+		return "TrainJourneyRanking [trainJourneyName=" + trainJourneyName +
+				", trainNumber=" + trainNumber +
+				", totalRevenue=" + totalRevenue + "]";
 	}
-
 }

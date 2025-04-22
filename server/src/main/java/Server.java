@@ -14,7 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server {
-    private static final int PORT = 9999;
+    private static final int PORT = 1111;
     private static final int MAX_THREADS = 100;
 
     private static final AccountDAO accountDAO = new AccountDAO();
@@ -805,7 +805,7 @@ public class Server {
                         trainJourneyDAO.getAllStops(new TrainJourney(payload.get("trainJourneyID")));
                 case "updateTrainJourney" -> {
                     TrainJourney trainJourney = new TrainJourney(payload.get("trainJourneyID"));
-                    trainJourney.setTraInJourneyName(payload.get("trainJourneyName"));
+                    trainJourney.setTrainJourneyName(payload.get("trainJourneyName"));
                     trainJourney.setBasePrice(Double.parseDouble(payload.get("basePrice")));
                     yield trainJourneyDAO.updateTrainJourney(trainJourney);
                 }
@@ -813,7 +813,7 @@ public class Server {
                         trainJourneyDAO.getAllTrainJourneyDetailsByTrainNumber(payload.get("trainNumber"));
                 case "addTrainJourney" -> {
                     TrainJourney trainJourney = new TrainJourney();
-                    trainJourney.setTraInJourneyName(payload.get("trainJourneyName"));
+                    trainJourney.setTrainJourneyName(payload.get("trainJourneyName"));
                     trainJourney.setTrain(new Train(payload.get("trainID"), "", ""));
                     trainJourney.setLine(new Line(payload.get("lineID")));
                     trainJourney.setBasePrice(Double.parseDouble(payload.get("basePrice")));

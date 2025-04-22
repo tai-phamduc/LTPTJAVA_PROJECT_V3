@@ -1,14 +1,35 @@
 package entity;
 
+import jakarta.persistence.*;
+
 import java.io.Serializable;
 
+@Entity
+@Table(name = "TrainJourney")
 public class TrainJourney implements Serializable {
 
+	@Id
+	@Column(name = "TrainJourneyID", length = 12, nullable = false)
 	private String trainJourneyID;
+
+	@Column(name = "TrainJourneyName", nullable = false, length = 255)
 	private String trainJourneyName;
+
+	@ManyToOne
+	@JoinColumn(name = "TrainID", nullable = false)
 	private Train train;
+
+	@Column(name = "BasePrice", nullable = false)
 	private double basePrice;
+
+	@ManyToOne
+	@JoinColumn(name = "LineID", nullable = false)
 	private Line line;
+
+	// No-argument constructor
+	public TrainJourney() {
+		super();
+	}
 
 	public TrainJourney(String trainJourneyID) {
 		super();
@@ -31,10 +52,6 @@ public class TrainJourney implements Serializable {
 		this.basePrice = giaGoc;
 	}
 
-	public TrainJourney() {
-		super();
-	}
-
 	public String getTrainJourneyID() {
 		return trainJourneyID;
 	}
@@ -43,12 +60,12 @@ public class TrainJourney implements Serializable {
 		this.trainJourneyID = trainJourneyID;
 	}
 
-	public String getTraInJourneyName() {
+	public String getTrainJourneyName() {
 		return trainJourneyName;
 	}
 
-	public void setTraInJourneyName(String traInJourneyName) {
-		this.trainJourneyName = traInJourneyName;
+	public void setTrainJourneyName(String trainJourneyName) {
+		this.trainJourneyName = trainJourneyName;
 	}
 
 	public Train getTrain() {
@@ -77,8 +94,7 @@ public class TrainJourney implements Serializable {
 
 	@Override
 	public String toString() {
-		return "TrainJourney [trainJourneyID=" + trainJourneyID + ", traInJourneyName=" + trainJourneyName + ", train="
+		return "TrainJourney [trainJourneyID=" + trainJourneyID + ", trainJourneyName=" + trainJourneyName + ", train="
 				+ train + ", basePrice=" + basePrice + ", line=" + line + "]";
 	}
-
 }

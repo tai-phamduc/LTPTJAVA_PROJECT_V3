@@ -1,41 +1,39 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import connectDB.ConnectDB;
-import entity.ServiceRanking;
 import entity.TrainJourneyRanking;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import utils.HibernateUtil;
 
 public class TrainJourneyRankingDAO {
-	private ConnectDB connectDB;
-
-	public TrainJourneyRankingDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
 
 	public List<TrainJourneyRanking> getTop10TrainJourneyRanking(int month, int year) {
-		Connection connection = connectDB.getConnection();
-		List<TrainJourneyRanking> trainJourneyRankingList = new ArrayList<TrainJourneyRanking>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<TrainJourneyRanking> resultList = null;
+
 		try {
-			PreparedStatement s = connection.prepareStatement("SELECT * FROM dbo.GetTop10TrainJourneysByRevenue(?, ?)");
-			s.setInt(1, month);
-			s.setInt(2, year);
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String trainJourneyName = rs.getString("TrainJourneyName");
-				String trainNumber = rs.getString("TrainNumber");
-				long totalRevenue = rs.getLong("TotalRevenue");
-				trainJourneyRankingList.add(new TrainJourneyRanking(trainJourneyName, trainNumber, totalRevenue));
-			}
-		} catch (SQLException e) {
+			Query query = em.createNativeQuery(
+					"SELECT * FROM dbo.GetTop10TrainJourneysByRevenue(?, ?)",
+					"TrainJourneyRankingMapping"
+			);
+			query.setParameter(1, month);
+			query.setParameter(2, year);
+
+			@SuppressWarnings("unchecked")
+			List<TrainJourneyRanking> results = query.getResultList();
+			resultList = results;
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			if (em != null && em.isOpen()) {
+				em.close();
+			}
 		}
-		return trainJourneyRankingList;
+
+		return resultList;
 	}
+
 }

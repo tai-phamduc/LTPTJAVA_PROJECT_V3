@@ -1,41 +1,33 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
+import entity.CustomerRanking;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import utils.HibernateUtil;
+
 import java.util.List;
 
-import connectDB.ConnectDB;
-import entity.CustomerRanking;
-import entity.ServiceRanking;
-
 public class CustomerRankingDAO {
-	private ConnectDB connectDB;
-
-	public CustomerRankingDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
 
 	public List<CustomerRanking> getTop10CustomerRanking(int month, int year) {
-		Connection connection = connectDB.getConnection();
-		List<CustomerRanking> customerRankingList = new ArrayList<CustomerRanking>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<CustomerRanking> resultList;
+
 		try {
-			PreparedStatement s = connection.prepareStatement("select * from dbo.GetTop10CustomersBySpending(?, ?)");
-			s.setInt(1, month);
-			s.setInt(2, year);
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String fullName = rs.getString("FullName");
-				String phoneNumber = rs.getString("PhoneNumber");
-				long totalSpending = rs.getLong("TotalSpending");
-				customerRankingList.add(new CustomerRanking(fullName, phoneNumber, totalSpending));
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+			// Native query with the result mapping name
+			Query query = em.createNativeQuery(
+					"SELECT fullName AS customerName, phoneNumber, totalSpending FROM dbo.GetTop10CustomersBySpending(?, ?)",
+					"CustomerRankingMapping" // Use the result mapping name defined in the CustomerRanking class
+			);
+			query.setParameter(1, month);
+			query.setParameter(2, year);
+
+			// This will return a List of CustomerRanking objects, not Object[]
+			resultList = query.getResultList();
+		} finally {
+			if (em.isOpen()) em.close();
 		}
-		return customerRankingList;
+
+		return resultList;
 	}
 }

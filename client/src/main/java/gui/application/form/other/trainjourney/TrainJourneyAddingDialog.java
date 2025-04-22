@@ -63,6 +63,8 @@ public class TrainJourneyAddingDialog extends JDialog implements ActionListener 
 	private List<Stop> stopList;
 	private JPanel superContainer;
 	private HashMap<String, String> payload;
+	private List<Line> lineList;
+	private List<Train> trainList;
 
 	public TrainJourneyAddingDialog() {
     	this.setLayout(new BorderLayout());
@@ -109,7 +111,7 @@ public class TrainJourneyAddingDialog extends JDialog implements ActionListener 
     	tauCombobox = new JComboBox<Train>();
 
 		payload = new HashMap<>();
-		List<Train> trainList = (List<Train>) ServerFetcher.fetch("train", "getAllTrain", payload);
+		trainList = (List<Train>) ServerFetcher.fetch("train", "getAllTrain", payload);
     	trainList.forEach(train -> {
     		tauCombobox.addItem(train);
     	});
@@ -123,7 +125,7 @@ public class TrainJourneyAddingDialog extends JDialog implements ActionListener 
     	duongDiCombobox = new JComboBox<Line>();
 		payload = new HashMap<>();
 		Object response = ServerFetcher.fetch("line", "getAllLine", payload);
-		List<Line> lineList = (List<Line>) response;
+		lineList = (List<Line>) response;
     	lineList.forEach(line -> {
     		duongDiCombobox.addItem(line);
     	});
@@ -198,7 +200,7 @@ public class TrainJourneyAddingDialog extends JDialog implements ActionListener 
         if (selectedLine != null) {
 			payload = new HashMap<>();
 			payload.put("lineID", selectedLine.getLineID());
-			List<Stop> stopList = (List<Stop>) ServerFetcher.fetch("line", "getLineStops", payload);
+			stopList = (List<Stop>) ServerFetcher.fetch("line", "getLineStops", payload);
 
             for (Stop stop : stopList) {
                 StopRow stopRow = new StopRow(stop);

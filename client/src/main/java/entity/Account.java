@@ -1,6 +1,7 @@
 package entity;
 
 import jakarta.persistence.*;
+
 import java.io.Serializable;
 
 @Entity

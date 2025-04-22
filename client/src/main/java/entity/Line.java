@@ -1,12 +1,26 @@
 package entity;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 import java.io.Serializable;
 import java.util.Objects;
 
+@Entity
+@Table(name = "Line")
 public class Line implements Serializable {
 
+	@Id
+	@Column(name = "LineID", length = 12)
 	private String lineID;
+
+	@Column(name = "LineName", nullable = false, length = 255)
 	private String lineName;
+
+	public Line() {
+	}
 
 	public Line(String lineID, String lineName) {
 		super();
@@ -55,5 +69,4 @@ public class Line implements Serializable {
 		Line other = (Line) obj;
 		return Objects.equals(lineID, other.lineID);
 	}
-
 }

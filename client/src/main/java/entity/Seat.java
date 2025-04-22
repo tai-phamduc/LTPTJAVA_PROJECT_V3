@@ -1,13 +1,28 @@
 package entity;
 
+import jakarta.persistence.*;
+
 import java.io.Serializable;
 import java.util.Objects;
 
+@Entity
+@Table(name = "Seat")
 public class Seat implements Serializable {
 
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "SeatID")
 	private int seatID;
+
+	@Column(name = "SeatNumber", nullable = false)
 	private int seatNumber;
+
+	@ManyToOne
+	@JoinColumn(name = "CoachID", nullable = false)
 	private Coach coach;
+
+	public Seat() {
+	}
 
 	public Seat(int seatID, int seatNumber, Coach coach) {
 		super();
@@ -72,5 +87,4 @@ public class Seat implements Serializable {
 		Seat other = (Seat) obj;
 		return seatID == other.seatID;
 	}
-
 }

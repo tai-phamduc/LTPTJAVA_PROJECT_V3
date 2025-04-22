@@ -112,7 +112,7 @@ public class TrainJourneyUpdateDialog extends JDialog implements ActionListener 
 		tenChuyenTauContainer = new JPanel(new MigLayout("wrap", "[]", "[][]"));
 		tenChuyenTauLabel = new JLabel("Tên chuyến tàu");
 		tenChuyenTauTextField = new JTextField(15);
-		tenChuyenTauTextField.setText(trainJourney.getTraInJourneyName());
+		tenChuyenTauTextField.setText(trainJourney.getTrainJourneyName());
 		tenChuyenTauContainer.add(tenChuyenTauLabel);
 		tenChuyenTauContainer.add(tenChuyenTauTextField);
 		//////////////////////////////////////////////

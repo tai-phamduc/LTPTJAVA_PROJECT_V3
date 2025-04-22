@@ -65,18 +65,22 @@ public class CustomerTableModel extends AbstractTableModel {
 	public Object getValueAt(int rowIndex, int columnIndex) {
 		Passenger passenger = passengers.get(rowIndex);
 		switch (columnIndex) {
-		case 0:
-			return passenger.getPassengerID();
-		case 1:
-			return passenger.getFullName();
-		case 2:
-			return passenger.getDateOfBirth().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
-		case 3:
-			return passenger.getIdentifier();
-		case 4:
-			return passenger.getIdentifierType();
-		case 5:
-			return passenger.getPassengerType();
+			case 0:
+				return passenger.getPassengerID();
+			case 1:
+				return passenger.getFullName();
+			case 2:
+				if (passenger.getDateOfBirth() != null) {
+					return passenger.getDateOfBirth().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+				} else {
+					return ""; // or "N/A", or whatever you prefer
+				}
+			case 3:
+				return passenger.getIdentifier();
+			case 4:
+				return passenger.getIdentifierType();
+			case 5:
+				return passenger.getPassengerType();
 		}
 		return null;
 	}

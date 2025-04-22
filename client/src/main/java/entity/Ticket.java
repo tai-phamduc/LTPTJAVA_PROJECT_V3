@@ -1,18 +1,43 @@
 package entity;
 
+import jakarta.persistence.*;
+
 import java.io.Serializable;
 
+@Entity
+@Table(name = "Ticket")
 public class Ticket implements Serializable {
 
+	@Id
+	@Column(name = "TicketID", length = 12)
 	private String ticketID;
+
+	@Column(name = "Status")
 	private String status;
+
+	@ManyToOne
+	@JoinColumn(name = "TrainJourneyID", nullable = false)
 	private TrainJourney trainJourney;
+
+	@ManyToOne
+	@JoinColumn(name = "SeatID", nullable = false)
 	private Seat seat;
+
+	@ManyToOne
+	@JoinColumn(name = "PassengerID", nullable = false)
 	private Passenger passenger;
+
+	@ManyToOne
+	@JoinColumn(name = "OrderID", nullable = false)
 	private Order order;
 
-	public Ticket(String ticketID, String status, TrainJourney trainJourney, Seat seat, Passenger passenger,
-			Order order) {
+	@Column(name = "PromotionID", length = 6)
+	private String promotionID;
+
+	public Ticket() {
+	}
+
+	public Ticket(String ticketID, String status, TrainJourney trainJourney, Seat seat, Passenger passenger, Order order) {
 		super();
 		this.ticketID = ticketID;
 		this.status = status;
@@ -90,10 +115,17 @@ public class Ticket implements Serializable {
 		this.order = order;
 	}
 
+	public String getPromotionID() {
+		return promotionID;
+	}
+
+	public void setPromotionID(String promotionID) {
+		this.promotionID = promotionID;
+	}
+
 	@Override
 	public String toString() {
 		return "Ticket [ticketID=" + ticketID + ", status=" + status + ", trainJourney=" + trainJourney + ", seat="
 				+ seat + ", passenger=" + passenger + ", order=" + order + "]";
 	}
-
 }

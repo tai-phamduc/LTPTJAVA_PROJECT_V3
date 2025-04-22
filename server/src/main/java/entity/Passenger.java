@@ -3,17 +3,33 @@ package entity;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Objects;
+import jakarta.persistence.*;
 
+@Entity
+@Table(name = "Passenger")
 public class Passenger implements Serializable {
+
+	@Id
+	@Column(name = "PassengerID", length = 12)
 	private String passengerID;
+
+	@Column(name = "FullName", nullable = false, length = 255)
 	private String fullName;
+
+	@Column(name = "DateOfBirth")
 	private LocalDate dateOfBirth;
-	private String identifierType;
+
+	@Column(name = "Identifier", length = 50)
 	private String identifier;
+
+	@Column(name = "IdentifierType", length = 20)
+	private String identifierType;
+
+	@Column(name = "PassengerType", nullable = false, length = 50)
 	private String passengerType;
 
 	public Passenger(String passengerID, String fullName, LocalDate dateOfBirth, String identifier,
-			String identifierType, String passengerType) {
+					 String identifierType, String passengerType) {
 		this.passengerID = passengerID;
 		this.fullName = fullName;
 		this.dateOfBirth = dateOfBirth;
@@ -35,11 +51,11 @@ public class Passenger implements Serializable {
 		this.passengerType = passengerType;
 	}
 
-    public Passenger(String passengerID) {
+	public Passenger(String passengerID) {
 		this.passengerID = passengerID;
-    }
+	}
 
-    public String getPassengerID() {
+	public String getPassengerID() {
 		return passengerID;
 	}
 
@@ -110,5 +126,4 @@ public class Passenger implements Serializable {
 		Passenger other = (Passenger) obj;
 		return Objects.equals(passengerID, other.passengerID);
 	}
-
 }

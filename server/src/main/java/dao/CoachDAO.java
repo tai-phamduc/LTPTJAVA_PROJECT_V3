@@ -1,114 +1,85 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import entity.Coach;
+import entity.Train;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import utils.HibernateUtil;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import connectDB.ConnectDB;
-import entity.Coach;
-import entity.Train;
-
 public class CoachDAO {
 
-	private ConnectDB connectDB;
-
-	public CoachDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
-
 	public int addCoach(Coach coach) {
-		Connection connection = null;
-		PreparedStatement statement = null;
-		ResultSet generatedKeys = null;
+		EntityManager em = HibernateUtil.getEntityManager();
+		int generatedID = -1;
 
 		try {
-			connection = connectDB.getConnection();
-			if (connection == null) {
-				System.err.println("Failed to establish a connection.");
-				return -1;
-			}
-
-			String sql = "INSERT INTO Coach (CoachNumber, CoachType, Capacity, TrainID) VALUES (?, ?, ?, ?)";
-			statement = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
-
-			statement.setInt(1, coach.getCoachNumber());
-			statement.setString(2, coach.getCoachType());
-			statement.setInt(3, coach.getCapacity());
-			statement.setString(4, coach.getTrain().getTrainID());
-
-			int status = statement.executeUpdate();
-
-			if (status == 1) {
-				generatedKeys = statement.getGeneratedKeys();
-				if (generatedKeys.next()) {
-					return generatedKeys.getInt(1);
-				}
-			}
-		} catch (SQLException e) {
+			em.getTransaction().begin();
+			em.persist(coach);
+			em.getTransaction().commit();
+			generatedID = coach.getCoachID(); // Assuming CoachID is auto-generated and set after persist
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) em.getTransaction().rollback();
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 
-		return -1;
+		return generatedID;
 	}
 
 	public List<Coach> getCoaches(Train train) {
-		Connection connection = connectDB.getConnection();
-		List<Coach> coachList = new ArrayList<Coach>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<Coach> coachList = new ArrayList<>();
+
 		try {
-			PreparedStatement s = connection.prepareStatement(
-					"SELECT CoachID, CoachNumber, CoachType, Capacity, TrainID FROM Coach WHERE TrainID = ?");
-			s.setString(1, train.getTrainID());
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				int coachID = rs.getInt("CoachID");
-				int coachNumber = rs.getInt("CoachNumber");
-				String coachType = rs.getString("CoachType");
-				int capacity = rs.getInt("Capacity");
-				coachList.add(new Coach(coachID, coachNumber, coachType, capacity, train));
-			}
-		} catch (SQLException e) {
+			Query query = em.createQuery("SELECT c FROM Coach c WHERE c.train.trainID = :trainID", Coach.class);
+			query.setParameter("trainID", train.getTrainID());
+			coachList = query.getResultList();
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 
 		return coachList;
 	}
 
 	public boolean removeCoaches(Train train) {
-		Connection connection = connectDB.getConnection();
+		EntityManager em = HibernateUtil.getEntityManager();
+		boolean success = false;
+
 		try {
-			PreparedStatement s = connection.prepareStatement("DELETE FROM Coach WHERE TrainID = ?");
-			s.setString(1, train.getTrainID());
-			int status = s.executeUpdate();
-			if (status == 1)
-				return true;
-		} catch (SQLException e) {
+			em.getTransaction().begin();
+			Query query = em.createQuery("DELETE FROM Coach c WHERE c.train.trainID = :trainID");
+			query.setParameter("trainID", train.getTrainID());
+			int status = query.executeUpdate();
+			em.getTransaction().commit();
+			success = status > 0;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) em.getTransaction().rollback();
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 
-		return false;
+		return success;
 	}
 
 	public Coach getCoachByID(int coachID) {
-		Connection connection = connectDB.getConnection();
-		try {
-			PreparedStatement s = connection.prepareStatement(
-					"SELECT CoachID, CoachNumber, CoachType, Capacity, TrainID FROM Coach WHERE CoachID = ?");
-			s.setInt(1, coachID);
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				int coachNumber = rs.getInt("CoachNumber");
-				String coachType = rs.getString("CoachType");
-				int capacity = rs.getInt("Capacity");
-				return new Coach(coachID, coachNumber, coachType, capacity);
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
+		EntityManager em = HibernateUtil.getEntityManager();
+		Coach coach = null;
 
+		try {
+			coach = em.find(Coach.class, coachID);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			em.close();
+		}
+
+		return coach;
+	}
 }

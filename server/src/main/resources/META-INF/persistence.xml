@@ -7,6 +7,32 @@
         <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
         <class>entity.Account</class>
         <class>entity.Employee</class>
+        <class>entity.Coach</class>
+        <class>entity.Customer</class>
+        <class>entity.Line</class>
+        <class>entity.LineStop</class>
+        <class>entity.Order</class>
+        <class>entity.Passenger</class>
+        <class>entity.Seat</class>
+        <class>entity.Service</class>
+        <class>entity.ServiceDetail</class>
+        <class>entity.Station</class>
+        <class>entity.Stop</class>
+        <class>entity.Ticket</class>
+        <class>entity.TicketDetail</class>
+        <class>entity.Train</class>
+        <class>entity.TrainJourney</class>
+
+        <class>entity.CustomerRanking</class>
+        <class>entity.ServiceRanking</class>
+        <class>entity.TrainJourneyDetails</class>
+        <class>entity.TrainDetails</class>
+        <class>entity.TrainJourneyOptionItem</class>
+        <class>entity.TrainJourneyRanking</class>
+        <class>entity.LineDetails</class>
+
+        <class>entity.CoachTypeTotalIncome</class>
+
         <properties>
             <property name="jakarta.persistence.jdbc.url"
                       value="jdbc:sqlserver://localhost:1433;databaseName=TrainTicketBookingSystem;trustServerCertificate=true;encrypt=true;" />
@@ -16,7 +42,7 @@
             <property name="jakarta.persistence.jdbc.dialect" value="org.hibernate.dialect.SQLServerDialect" />
             <property name="hibernate.show_sql" value="true" />
             <property name="hibernate.format_sql" value="true" />
-            <property name="hibernate.hbm2ddl.auto" value="validate" />
+<!--            <property name="hibernate.hbm2ddl.auto" value="validate" />-->
         </properties>
     </persistence-unit>
 </persistence>

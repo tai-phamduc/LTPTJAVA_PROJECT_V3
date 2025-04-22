@@ -1,93 +1,82 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
-import connectDB.ConnectDB;
 import entity.Customer;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.Query;
+import utils.HibernateUtil;
 
 public class CustomerDAO {
-	private ConnectDB connectDB;
-
-	public CustomerDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
 
 	public Customer getCustomerByID(String customerID) {
-		String query = "SELECT * FROM Customer WHERE CustomerID = ?";
+		EntityManager em = HibernateUtil.getEntityManager();
 		Customer customer = null;
-		Connection connection = connectDB.getConnection();
-		PreparedStatement statement = null;
-		ResultSet rs = null;
 
 		try {
-			statement = connection.prepareStatement(query);
-			statement.setString(1, customerID);
-
-			rs = statement.executeQuery();
-
-			if (rs.next()) {
-				String fullName = rs.getString("fullName");
-				String phoneNumber = rs.getString("phoneNumber");
-				String email = rs.getString("email");
-				String identificationNumber = rs.getString("identificationNumber");
-
-				customer = new Customer(customerID, fullName, phoneNumber, email, identificationNumber);
-			}
-		} catch (SQLException e) {
+			customer = em.find(Customer.class, customerID);
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
+
 		return customer;
 	}
 
 	public String addCustomer(Customer customer) {
-		Connection connection = connectDB.getConnection();
-		String insertSQL = "INSERT INTO customer (fullName, phoneNumber, email, identificationNumber) OUTPUT inserted.customerID "
-				+ "VALUES (?, ?, ?, ?)";
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			// Tạo câu lệnh PreparedStatement với truy vấn SQL
-			PreparedStatement s = connection.prepareStatement(insertSQL);
-			s.setString(1, customer.getFullName());
-			s.setString(2, customer.getPhoneNumber());
-			s.setString(3, customer.getEmail());
-			s.setString(4, customer.getIdentificationNumber());
+			em.getTransaction().begin();
 
-			// Thực thi câu truy vấn và lấy kết quả
-			ResultSet rs = s.executeQuery();
+			// Use native SQL insert to let DB generate CustomerID and return it
+			Query query = em.createNativeQuery("""
+            INSERT INTO Customer (fullName, phoneNumber, email, identificationNumber)
+            OUTPUT INSERTED.CustomerID
+            VALUES (?, ?, ?, ?)
+        """);
 
-			if (rs.next()) {
-				// Trả về CustomerID (char(12)) dạng String
-				return rs.getString(1);
-			} else {
-				return null;
+			query.setParameter(1, customer.getFullName());
+			query.setParameter(2, customer.getPhoneNumber());
+			query.setParameter(3, customer.getEmail());
+			query.setParameter(4, customer.getIdentificationNumber());
+
+			// Get the generated CustomerID from OUTPUT
+			String generatedCustomerID = (String) query.getSingleResult();
+
+			em.getTransaction().commit();
+			return generatedCustomerID;
+
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
 			}
-		} catch (SQLException e) {
 			e.printStackTrace();
+			return null;
+		} finally {
+			em.close();
 		}
-		return null;
 	}
 
 	public Customer getCustomerByEmail(String email) {
-		Connection connection = connectDB.getConnection();
-		try {
-			PreparedStatement s = connection.prepareStatement(
-					"SELECT CustomerID, fullName, phoneNumber, email, identificationNumber FROM Customer where email = ?");
-			s.setString(1, email);
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				String customerID = rs.getString("CustomerID");
-				String fullName = rs.getString("fullName");
-				String phoneNumber = rs.getString("phoneNumber");
-				String identificationNUmber = rs.getString("identificationNumber");
-				return new Customer(customerID, fullName, phoneNumber, email, identificationNUmber);
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
+		EntityManager em = HibernateUtil.getEntityManager();
+		Customer customer = null;
 
+		try {
+			customer = em.createQuery("""
+					SELECT c FROM Customer c WHERE c.email = :email
+				""", Customer.class)
+					.setParameter("email", email)
+					.setMaxResults(1)
+					.getSingleResult();
+		} catch (NoResultException e) {
+			// Return null if no result
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			em.close();
+		}
+
+		return customer;
+	}
 }

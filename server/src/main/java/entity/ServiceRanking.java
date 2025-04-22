@@ -1,7 +1,22 @@
 package entity;
 
+import jakarta.persistence.SqlResultSetMapping;
+import jakarta.persistence.ConstructorResult;
+import jakarta.persistence.ColumnResult;
+
 import java.io.Serializable;
 
+@SqlResultSetMapping(
+		name = "ServiceRankingMapping",
+		classes = @ConstructorResult(
+				targetClass = ServiceRanking.class,
+				columns = {
+						@ColumnResult(name = "serviceName", type = String.class),
+						@ColumnResult(name = "salesQuantity", type = Integer.class),
+						@ColumnResult(name = "revenue", type = Long.class)
+				}
+		)
+)
 public class ServiceRanking implements Serializable {
 
 	private String serviceName;
@@ -9,7 +24,6 @@ public class ServiceRanking implements Serializable {
 	private long revenue;
 
 	public ServiceRanking(String serviceName, int salesQuantity, long revenue) {
-		super();
 		this.serviceName = serviceName;
 		this.salesQuantity = salesQuantity;
 		this.revenue = revenue;
@@ -41,8 +55,6 @@ public class ServiceRanking implements Serializable {
 
 	@Override
 	public String toString() {
-		return "ServiceRanking [serviceName=" + serviceName + ", salesQuantity=" + salesQuantity + ", revenue="
-				+ revenue + "]";
+		return "ServiceRanking [serviceName=" + serviceName + ", salesQuantity=" + salesQuantity + ", revenue=" + revenue + "]";
 	}
-
 }

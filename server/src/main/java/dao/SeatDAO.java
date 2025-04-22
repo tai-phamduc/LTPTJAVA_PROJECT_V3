@@ -1,91 +1,57 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
+import jakarta.persistence.TypedQuery;
 
-import connectDB.ConnectDB;
 import entity.Coach;
 import entity.Seat;
+import utils.HibernateUtil;
 
 public class SeatDAO {
 
-	private ConnectDB connectDB;
-
-	public SeatDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
-
 	public int addSeat(Seat seat) {
-		Connection connection = null;
-		PreparedStatement statement = null;
-		ResultSet generatedKeys = null;
-
+		EntityManager em = HibernateUtil.getEntityManager();
+		EntityTransaction tx = em.getTransaction();
 		try {
-			connection = connectDB.getConnection();
-			if (connection == null) {
-				System.err.println("Failed to establish a connection.");
-				return -1;
-			}
-
-			String sql = "INSERT INTO Seat (SeatNumber, CoachID) VALUES (?, ?)";
-			statement = connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
-
-			statement.setInt(1, seat.getSeatNumber());
-			statement.setInt(2, seat.getCoach().getCoachID());
-
-			int status = statement.executeUpdate();
-
-			if (status == 1) {
-				generatedKeys = statement.getGeneratedKeys();
-				if (generatedKeys.next()) {
-					return generatedKeys.getInt(1);
-				}
-			}
-		} catch (SQLException e) {
+			tx.begin();
+			em.persist(seat);
+			tx.commit();
+			return seat.getSeatID(); // Since it's auto-generated, ID is set after persist
+		} catch (Exception e) {
 			e.printStackTrace();
+			if (tx.isActive()) tx.rollback();
+		} finally {
+			em.close();
 		}
-
 		return -1;
 	}
 
 	public Seat getSeatByID(int seatID) {
-		Connection connection = connectDB.getConnection();
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement s = connection
-					.prepareStatement("SELECT SeatID, SeatNumber, CoachID FROM Seat WHERE SeatID = ?");
-			s.setInt(1, seatID);
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				return new Seat(seatID, rs.getInt("SeatNumber"), (new CoachDAO()).getCoachByID(rs.getInt("CoachID")));
-			}
-		} catch (SQLException e) {
+			return em.find(Seat.class, seatID);
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 		return null;
 	}
 
 	public List<Seat> getSeats(Coach selectedCoach) {
-		Connection connection = connectDB.getConnection();
-		List<Seat> seatList = new ArrayList<Seat>();
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement s = connection
-					.prepareStatement("select SeatID, seatNumber, CoachID from seat where CoachID = ?");
-			s.setInt(1, selectedCoach.getCoachID());
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				int seatID = rs.getInt("seatID");
-				int seatNumber = rs.getInt("seatNumber");
-				seatList.add(new Seat(seatID, seatNumber, selectedCoach));
-			}
-		} catch (SQLException e) {
+			TypedQuery<Seat> query = em.createQuery(
+					"SELECT s FROM Seat s WHERE s.coach.coachID = :coachID", Seat.class);
+			query.setParameter("coachID", selectedCoach.getCoachID());
+			return query.getResultList();
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
-		return seatList;
+		return null;
 	}
-
 }

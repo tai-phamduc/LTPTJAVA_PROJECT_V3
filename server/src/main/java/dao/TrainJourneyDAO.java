@@ -1,10 +1,5 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -12,7 +7,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-import connectDB.ConnectDB;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import jakarta.persistence.StoredProcedureQuery;
+import jakarta.persistence.TypedQuery;
+import utils.HibernateUtil;
 import entity.Line;
 import entity.Seat;
 import entity.Station;
@@ -23,357 +22,457 @@ import entity.TrainJourneyDetails;
 import entity.TrainJourneyOptionItem;
 
 public class TrainJourneyDAO {
-	private ConnectDB connectDB;
-
-	public TrainJourneyDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
 
 	public List<TrainJourneyDetails> getAllTrainJourneyDetails() {
-		Connection connection = connectDB.getConnection();
-		List<TrainJourneyDetails> trainJourneyDetailsList = new ArrayList<TrainJourneyDetails>();
-		ResultSet rs = null;
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<TrainJourneyDetails> trainJourneyDetailsList = new ArrayList<>();
+
 		try {
-			PreparedStatement s = connection.prepareStatement(
-					"SELECT trainJourneyID, trainJourneyName, trainNumber, departureStation, arrivalStation, departureDate, departureTime, arrivalTime, totalDistance, bookedTickets, totalSeats FROM dbo.fn_GetAllTrainJourneyDetails();");
-			rs = s.executeQuery();
-			while (rs.next()) {
-				String trainJourneyID = rs.getString("trainJourneyID");
-				String trainJourneyName = rs.getString("trainJourneyName");
-				String trainNumber = rs.getString("trainNumber");
-				String departureStation = rs.getString("departureStation");
-				String arrivalStation = rs.getString("arrivalStation");
-				LocalDate departureDate;
-				if (rs.getDate("departureDate") != null) {
+			Query query = em.createNativeQuery(
+					"SELECT trainJourneyID, trainJourneyName, trainNumber, departureStation, arrivalStation, " +
+							"departureDate, departureTime, arrivalTime, totalDistance, bookedTickets, totalSeats " +
+							"FROM dbo.fn_GetAllTrainJourneyDetails()", Object[].class);
 
-					departureDate = rs.getDate("departureDate").toLocalDate();
-				} else {
-					departureDate = LocalDate.now();
-				}
-				LocalDateTime departureTime;
-				if (rs.getTimestamp("departureTime") != null) {
+			List<Object[]> results = query.getResultList();
 
-					departureTime = rs.getTimestamp("departureTime").toLocalDateTime();
-				} else {
-					departureTime = LocalDateTime.now();
-				}
-				LocalDateTime arrivalTime;
-				if (rs.getTimestamp("arrivalTime") != null) {
+			DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+			DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 
-					arrivalTime = rs.getTimestamp("arrivalTime").toLocalDateTime();
-				} else {
-					arrivalTime = LocalDateTime.now();
-				}
-				int totalDistance = rs.getInt("totalDistance");
-				int bookedTickets = rs.getInt("bookedTickets");
-				int totalSeats = rs.getInt("totalSeats");
-				DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+			for (Object[] row : results) {
+				String trainJourneyID = (String) row[0];
+				String trainJourneyName = (String) row[1];
+				String trainNumber = (String) row[2];
+				String departureStation = (String) row[3];
+				String arrivalStation = (String) row[4];
 
-				trainJourneyDetailsList.add(new TrainJourneyDetails(trainJourneyID, trainNumber, trainJourneyName,
-						departureStation + " - " + arrivalStation, departureDate.format(dateFormatter),
-						departureTime.format(formatter) + " - " + arrivalTime.format(formatter), totalDistance,
-						bookedTickets + "/" + totalSeats));
+				LocalDate departureDate = row[5] != null
+						? ((java.sql.Date) row[5]).toLocalDate()
+						: LocalDate.now();
+
+				LocalTime departureTime = row[6] != null
+						? ((java.sql.Time) row[6]).toLocalTime()
+						: LocalTime.now();
+
+				LocalTime arrivalTime = row[7] != null
+						? ((java.sql.Time) row[7]).toLocalTime()
+						: LocalTime.now();
+
+				// Check if totalDistance is null before calling intValue
+				int totalDistance = row[8] != null
+						? ((Number) row[8]).intValue()
+						: 0;  // Use a default value if it's null
+
+				// Check if bookedTickets is null before calling intValue
+				int bookedTickets = row[9] != null
+						? ((Number) row[9]).intValue()
+						: 0;  // Use a default value if it's null
+
+				// Check if totalSeats is null before calling intValue
+				int totalSeats = row[10] != null
+						? ((Number) row[10]).intValue()
+						: 0;  // Use a default value if it's null
+
+				trainJourneyDetailsList.add(new TrainJourneyDetails(
+						trainJourneyID,
+						trainNumber,
+						trainJourneyName,
+						departureStation + " - " + arrivalStation,
+						departureDate.format(dateFormatter),
+						departureTime.format(timeFormatter) + " - " + arrivalTime.format(timeFormatter),
+						totalDistance,
+						bookedTickets + "/" + totalSeats
+				));
 			}
-		} catch (SQLException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			if (em != null && em.isOpen()) {
+				em.close();
+			}
 		}
+
 		return trainJourneyDetailsList;
 	}
 
 	public boolean addStops(List<Stop> stopList) {
-		Connection connection = null;
-		PreparedStatement s = null;
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			// Get the database connection
-			connection = connectDB.getConnection();
-			connection.setAutoCommit(false); // Disable auto-commit for batch insertion
-			// Prepare the SQL statement
-			s = connection.prepareStatement(
-					"INSERT INTO Stop (trainJourneyID, stationID, stopOrder, distance, departureDate, arrivalTime, departureTime) "
-							+ "VALUES (?, ?, ?, ?, ?, ?, ?)");
-			// Loop through the list of stops and add them to the batch
+			em.getTransaction().begin();
+
 			for (Stop stop : stopList) {
-				s.setString(1, stop.getTrainJourney().getTrainJourneyID());
-				s.setString(2, stop.getStation().getStationID());
-				s.setInt(3, stop.getStopOrder());
-				s.setInt(4, stop.getDistance());
-				s.setDate(5, java.sql.Date.valueOf(stop.getDepartureDate())); // Convert LocalDate to java.sql.Date
-				s.setTime(6, java.sql.Time.valueOf(stop.getArrivalTime())); // Convert LocalTime to java.sql.Time
-				s.setTime(7, java.sql.Time.valueOf(stop.getDepartureTime())); // Convert LocalTime to java.sql.Time
-				s.addBatch(); // Add the statement to the batch
+				Query query = em.createNativeQuery(
+						"INSERT INTO Stop (trainJourneyID, stationID, stopOrder, distance, departureDate, arrivalTime, departureTime) " +
+								"VALUES (?, ?, ?, ?, ?, ?, ?)");
+
+				query.setParameter(1, stop.getTrainJourney().getTrainJourneyID());
+				query.setParameter(2, stop.getStation().getStationID());
+				query.setParameter(3, stop.getStopOrder());
+				query.setParameter(4, stop.getDistance());
+				query.setParameter(5, stop.getDepartureDate());
+				query.setParameter(6, stop.getArrivalTime());
+				query.setParameter(7, stop.getDepartureTime());
+
+				query.executeUpdate();
 			}
-			// Execute the batch and commit the transaction
-			s.executeBatch();
-			connection.commit(); // Commit all changes
-			return true; // Return true if successful
-		} catch (SQLException e) {
+
+			em.getTransaction().commit();
+			return true;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
+			}
 			e.printStackTrace();
-			try {
-				if (connection != null)
-					connection.rollback(); // Roll back on error
-			} catch (SQLException rollbackEx) {
-				rollbackEx.printStackTrace();
-			}
+			return false;
+		} finally {
+			em.close();
 		}
-		return false; // Return false if an error occurred
 	}
 
 	public int deleteTrainJourneyByID(String trainJourneyID) {
-		Connection connection = null;
-		PreparedStatement deleteStopsStmt = null;
-		PreparedStatement deleteTrainJourneyStmt = null;
-
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			// Get the connection
-			connection = connectDB.getConnection();
-			connection.setAutoCommit(false); // Disable auto-commit for transaction
+			em.getTransaction().begin();
 
-			// Delete related stops
-			String deleteStopsSQL = "DELETE FROM Stop WHERE trainJourneyID = ?";
-			deleteStopsStmt = connection.prepareStatement(deleteStopsSQL);
-			deleteStopsStmt.setString(1, trainJourneyID);
-			int stopsDeleted = deleteStopsStmt.executeUpdate();
+			// Delete related stops first
+			Query deleteStopsQuery = em.createNativeQuery("DELETE FROM Stop WHERE trainJourneyID = ?");
+			deleteStopsQuery.setParameter(1, trainJourneyID);
+			int stopsDeleted = deleteStopsQuery.executeUpdate();
 
-			// Delete the train journey
-			String deleteTrainJourneySQL = "DELETE FROM TrainJourney WHERE trainJourneyID = ?";
-			deleteTrainJourneyStmt = connection.prepareStatement(deleteTrainJourneySQL);
-			deleteTrainJourneyStmt.setString(1, trainJourneyID);
-			int trainJourneyDeleted = deleteTrainJourneyStmt.executeUpdate();
+			// Then delete the train journey
+			Query deleteJourneyQuery = em.createNativeQuery("DELETE FROM TrainJourney WHERE trainJourneyID = ?");
+			deleteJourneyQuery.setParameter(1, trainJourneyID);
+			int journeyDeleted = deleteJourneyQuery.executeUpdate();
 
-			// Commit the transaction
-			connection.commit();
-
-			// Return the total number of deleted records
-			return stopsDeleted + trainJourneyDeleted;
-
-		} catch (SQLException e) {
-			e.printStackTrace();
-			try {
-				if (connection != null) {
-					connection.rollback(); // Roll back if there's an error
-				}
-			} catch (SQLException rollbackEx) {
-				rollbackEx.printStackTrace();
+			em.getTransaction().commit();
+			return stopsDeleted + journeyDeleted;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
 			}
+			e.printStackTrace();
+			return 0;
+		} finally {
+			em.close();
 		}
-		return 0; // Return 0 if the operation failed
 	}
 
 	public TrainJourney getTrainJourneyByID(String trainJourneyID) {
-		Connection connection = connectDB.getConnection();
+		EntityManager em = HibernateUtil.getEntityManager();
+		TrainJourney trainJourney = null;
+
 		try {
-			PreparedStatement s = connection.prepareStatement(
-					"SELECT trainJourneyName, t.trainID, t.trainNumber, t.Status, l.lineID, l.lineName, basePrice FROM TrainJourney tj join Train t on tj.trainID = t.TrainID join line l on tj.lineID = l.lineID WHERE trainJourneyID = ?");
-			s.setString(1, trainJourneyID);
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				String trainJourneyName = rs.getString("trainJourneyName");
-				Train train = new Train(rs.getString("trainID"), rs.getString("trainNumber"), rs.getString("status"));
-				Line line = new Line(rs.getString("lineID"), rs.getString("lineName"));
-				double basePrice = rs.getDouble("basePrice");
-				return new TrainJourney(trainJourneyID, trainJourneyName, train, basePrice, line);
+			TypedQuery<TrainJourney> query = em.createQuery(
+					"SELECT tj FROM TrainJourney tj " +
+							"JOIN FETCH tj.train t " +
+							"JOIN FETCH tj.line l " +
+							"WHERE tj.trainJourneyID = :id",
+					TrainJourney.class
+			);
+			query.setParameter("id", trainJourneyID);
+			trainJourney = query.getSingleResult();
+		} catch (Exception e) {
+			e.printStackTrace(); // optionally log this
+		} finally {
+			if (em != null) {
+				em.close();
 			}
-		} catch (SQLException e) {
-			e.printStackTrace();
 		}
-		return null;
+
+		return trainJourney;
 	}
 
 	public List<Stop> getAllStops(TrainJourney trainJourney) {
-		Connection connection = connectDB.getConnection();
-		List<Stop> stopList = new ArrayList<Stop>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<Stop> stopList = new ArrayList<>();
 		try {
-			PreparedStatement s = connection.prepareStatement(
-					"select stopID, trainJourneyID, station.stationID, station.stationName, stopOrder, distance, departureDate, arrivalTime, departureTime from stop join Station on stop.stationID = Station.stationID where trainJourneyID = ?");
-			s.setString(1, trainJourney.getTrainJourneyID());
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String stopID = rs.getString("stopID");
-				int stopOrder = rs.getInt("stopOrder");
-				String stationID = rs.getString("stationID");
-				String stationName = rs.getString("stationName");
-				int distance = rs.getInt("distance");
-				LocalDate departureDate = rs.getDate("departureDate").toLocalDate();
-				LocalTime arrivalTime = rs.getTime("arrivalTime").toLocalTime();
-				LocalTime departureTime = rs.getTime("departureTime").toLocalTime();
-				stopList.add(new Stop(stopID, trainJourney, new Station(stationID, stationName), stopOrder, distance,
-						departureDate, arrivalTime, departureTime));
+			Query query = em.createNativeQuery(
+					"SELECT s.stopID, s.stationID, st.stationName, s.stopOrder, s.distance, " +
+							"s.departureDate, s.arrivalTime, s.departureTime " +
+							"FROM Stop s JOIN Station st ON s.stationID = st.stationID " +
+							"WHERE s.trainJourneyID = ?", Object[].class);
+
+			query.setParameter(1, trainJourney.getTrainJourneyID());
+			List<Object[]> results = query.getResultList();
+
+			for (Object[] row : results) {
+				String stopID = (String) row[0];
+				String stationID = (String) row[1];
+				String stationName = (String) row[2];
+				int stopOrder = (int) row[3];
+				int distance = (int) row[4];
+				LocalDate departureDate = ((java.sql.Date) row[5]).toLocalDate();
+				LocalTime arrivalTime = ((java.sql.Time) row[6]).toLocalTime();
+				LocalTime departureTime = ((java.sql.Time) row[7]).toLocalTime();
+
+				stopList.add(new Stop(
+						stopID, trainJourney, new Station(stationID, stationName),
+						stopOrder, distance, departureDate, arrivalTime, departureTime
+				));
 			}
-		} catch (SQLException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 		return stopList;
 	}
 
 	public int updateTrainJourney(TrainJourney trainJourney) {
-		Connection connection = connectDB.getConnection();
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement s = connection.prepareStatement(
-					"update TrainJourney set trainJourneyName = ?, basePrice = ? where trainJourneyID = ?");
-			s.setString(1, trainJourney.getTraInJourneyName());
-			s.setDouble(2, trainJourney.getBasePrice());
-			s.setString(3, trainJourney.getTrainJourneyID());
-			return s.executeUpdate();
+			em.getTransaction().begin();
 
-		} catch (SQLException e) {
+			Query query = em.createNativeQuery(
+					"UPDATE TrainJourney SET trainJourneyName = ?, basePrice = ? WHERE trainJourneyID = ?");
+
+			query.setParameter(1, trainJourney.getTrainJourneyName());
+			query.setParameter(2, trainJourney.getBasePrice());
+			query.setParameter(3, trainJourney.getTrainJourneyID());
+
+			int result = query.executeUpdate();
+			em.getTransaction().commit();
+			return result;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
+			}
 			e.printStackTrace();
+			return -1;
+		} finally {
+			em.close();
 		}
-		return -1;
 	}
 
 	public List<TrainJourneyDetails> getAllTrainJourneyDetailsByTrainNumber(String trainNumberToFind) {
-		Connection connection = connectDB.getConnection();
-		List<TrainJourneyDetails> trainJourneyDetailsList = new ArrayList<TrainJourneyDetails>();
-		ResultSet rs = null;
-		try {
-			PreparedStatement s = connection.prepareStatement(
-					"SELECT trainJourneyID, trainJourneyName, trainNumber, departureStation, arrivalStation, departureDate, departureTime, arrivalTime, totalDistance, bookedTickets, totalSeats FROM dbo.fn_GetAllTrainJourneyDetails() where trainNumber LIKE ?");
-			s.setString(1, "%" + trainNumberToFind + "%");
-			rs = s.executeQuery();
-			while (rs.next()) {
-				String trainJourneyID = rs.getString("trainJourneyID");
-				String trainJourneyName = rs.getString("trainJourneyName");
-				String trainNumber = rs.getString("trainNumber");
-				String departureStation = rs.getString("departureStation");
-				String arrivalStation = rs.getString("arrivalStation");
-				LocalDateTime departureTime = rs.getTimestamp("departureTime").toLocalDateTime();
-				LocalDate departureDate = rs.getDate("departureDate").toLocalDate();
-				LocalDateTime arrivalTime = rs.getTimestamp("arrivalTime").toLocalDateTime();
-				int totalDistance = rs.getInt("totalDistance");
-				int bookedTickets = rs.getInt("bookedTickets");
-				int totalSeats = rs.getInt("totalSeats");
-				DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<TrainJourneyDetails> trainJourneyDetailsList = new ArrayList<>();
 
-				trainJourneyDetailsList.add(new TrainJourneyDetails(trainJourneyID, trainNumber, trainJourneyName,
-						departureStation + " - " + arrivalStation, departureDate.format(dateFormatter),
-						departureTime.format(formatter) + " - " + arrivalTime.format(formatter), totalDistance,
-						bookedTickets + "/" + totalSeats));
+		try {
+			Query query = em.createNativeQuery(
+					"SELECT trainJourneyID, trainJourneyName, trainNumber, departureStation, arrivalStation, " +
+							"departureDate, departureTime, arrivalTime, totalDistance, bookedTickets, totalSeats " +
+							"FROM dbo.fn_GetAllTrainJourneyDetails() WHERE trainNumber LIKE ?", Object[].class);
+
+			query.setParameter(1, "%" + trainNumberToFind + "%");
+			List<Object[]> results = query.getResultList();
+
+			DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+			DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+
+			for (Object[] row : results) {
+				String trainJourneyID = (String) row[0];
+				String trainJourneyName = (String) row[1];
+				String trainNumber = (String) row[2];
+				String departureStation = (String) row[3];
+				String arrivalStation = (String) row[4];
+
+				LocalDate departureDate = row[5] != null
+						? ((java.sql.Date) row[5]).toLocalDate()
+						: LocalDate.now();
+
+				LocalTime departureTime = row[6] != null
+						? ((java.sql.Time) row[6]).toLocalTime()
+						: LocalTime.now();
+
+				LocalTime arrivalTime = row[7] != null
+						? ((java.sql.Time) row[7]).toLocalTime()
+						: LocalTime.now();
+
+				int totalDistance = row[8] != null
+						? ((Number) row[8]).intValue()
+						: 0;
+
+				int bookedTickets = row[9] != null
+						? ((Number) row[9]).intValue()
+						: 0;
+
+				int totalSeats = row[10] != null
+						? ((Number) row[10]).intValue()
+						: 0;
+
+				trainJourneyDetailsList.add(new TrainJourneyDetails(
+						trainJourneyID,
+						trainNumber,
+						trainJourneyName,
+						departureStation + " - " + arrivalStation,
+						departureDate.format(dateFormatter),
+						departureTime.format(timeFormatter) + " - " + arrivalTime.format(timeFormatter),
+						totalDistance,
+						bookedTickets + "/" + totalSeats
+				));
 			}
-		} catch (SQLException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			if (em != null && em.isOpen()) {
+				em.close();
+			}
 		}
+
 		return trainJourneyDetailsList;
 	}
 
 	public String addTrainJourney(TrainJourney trainJourney) {
-		Connection connection = connectDB.getConnection();
-
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement s = connection
-					.prepareStatement("INSERT INTO TrainJourney (trainJourneyName, trainID, lineID, basePrice) "
-							+ "OUTPUT inserted.trainJourneyID VALUES (?, ?, ?, ?)"); // Sử dụng OUTPUT
+			em.getTransaction().begin();
 
-			s.setString(1, trainJourney.getTraInJourneyName());
-			s.setString(2, trainJourney.getTrain().getTrainID());
-			s.setString(3, trainJourney.getLine().getLineID());
-			s.setDouble(4, trainJourney.getBasePrice());
+			Query query = em.createNativeQuery(
+					"INSERT INTO TrainJourney (trainJourneyName, trainID, lineID, basePrice) " +
+							"OUTPUT inserted.trainJourneyID VALUES (?, ?, ?, ?)");
 
-			// Thực hiện cập nhật
-			ResultSet rs = s.executeQuery(); // Sử dụng executeQuery để lấy dữ liệu từ OUTPUT
-			if (rs.next()) {
-				return rs.getString("trainJourneyID"); // Trả về ID dạng String
+			query.setParameter(1, trainJourney.getTrainJourneyName());
+			query.setParameter(2, trainJourney.getTrain().getTrainID());
+			query.setParameter(3, trainJourney.getLine().getLineID());
+			query.setParameter(4, trainJourney.getBasePrice());
+
+			String generatedID = (String) query.getSingleResult();
+			em.getTransaction().commit();
+			return generatedID;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
 			}
-		} catch (SQLException e) {
 			e.printStackTrace();
+			return null;
+		} finally {
+			em.close();
 		}
-
-		return null; // Trả về null nếu không thành công
 	}
 
-	public int getDistanceBetweenTwoStopsOfATrainJourney(String trainJourneyID, Station departureStation,
-			Station arrivalStation) {
-		Connection connection = connectDB.getConnection();
+	public int getDistanceBetweenTwoStopsOfATrainJourney(String trainJourneyID, Station departureStation, Station arrivalStation) {
+		EntityManager em = HibernateUtil.getEntityManager();
+		int distance = -1;
+
 		try {
-			PreparedStatement s = connection
-					.prepareStatement("SELECT dbo.GetDistanceBetweenStops(?, ?, ?) AS distance");
-			s.setString(1, trainJourneyID);
-			s.setString(2, departureStation.getStationID());
-			s.setString(3, arrivalStation.getStationID());
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				return rs.getInt("distance");
+			Query query = em.createNativeQuery("SELECT dbo.GetDistanceBetweenStops(?, ?, ?) AS distance");
+			query.setParameter(1, trainJourneyID);
+			query.setParameter(2, departureStation.getStationID());
+			query.setParameter(3, arrivalStation.getStationID());
+
+			Object result = query.getSingleResult();
+			if (result != null) {
+				distance = ((Number) result).intValue();
 			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace(); // or use a logger
+		} finally {
+			if (em != null) {
+				em.close();
+			}
 		}
-		return -1;
+
+		return distance;
 	}
 
 	public List<TrainJourneyOptionItem> searchTrainJourney(String gaDi, String gaDen, LocalDate ngayDi) {
-		Connection connection = connectDB.getConnection();
-		List<TrainJourneyOptionItem> trainJourneyOptionItemList = new ArrayList<TrainJourneyOptionItem>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<TrainJourneyOptionItem> resultList = new ArrayList<>();
+
 		try {
-			PreparedStatement s = connection
-					.prepareStatement("SELECT * FROM dbo.GetTrainJourneysByStationNames(?, ?, ?)");
-			s.setString(1, gaDi);
-			s.setString(2, gaDen);
-			s.setDate(3, Date.valueOf(ngayDi));
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String trainJourneyID = rs.getString("trainJourneyID");
-				Train train = new Train(rs.getString("trainID"), "", "");
-				train.setTrainNumber(rs.getString("trainNumber"));
-				int numberOfAvailableSeatsLeft = rs.getInt("numberOfAvailableSeatsLeft");
-				LocalDate departureDate = rs.getDate("departureDate").toLocalDate();
-				LocalTime depatureTime = rs.getTime("departureTime").toLocalTime();
-				LocalDate arrivalDate = rs.getDate("arrivalDate").toLocalDate();
-				LocalTime arrivalTime = rs.getTime("arrivalTime").toLocalTime();
-				int journeyDuration = rs.getInt("journeyDuration");
-				Station departureStation = new Station(rs.getString("departureStationID"),
-						rs.getString("departureStationName"));
-				Station arrivalStation = new Station(rs.getString("arrivalStationID"),
-						rs.getString("arrivalStationName"));
-				trainJourneyOptionItemList.add(new TrainJourneyOptionItem(trainJourneyID, train,
-						numberOfAvailableSeatsLeft, departureDate, depatureTime, arrivalDate, arrivalTime,
-						journeyDuration, departureStation, arrivalStation));
+			Query query = em.createNativeQuery(
+					"SELECT * FROM dbo.GetTrainJourneysByStationNames(?, ?, ?)"
+			);
+			query.setParameter(1, gaDi);
+			query.setParameter(2, gaDen);
+			query.setParameter(3, ngayDi);
+
+			List<Object[]> results = query.getResultList();
+			for (Object[] row : results) {
+				String trainJourneyID = (String) row[0];
+				String trainID = (String) row[2];
+				String trainNumber = (String) row[3];
+
+				Train train = new Train();
+				train.setTrainID(trainID);
+				train.setTrainNumber(trainNumber);
+
+				String departureStationID = (String) row[4];
+				String departureStationName = (String) row[5];
+				LocalDate departureDate = ((java.sql.Date) row[6]).toLocalDate();
+				LocalTime departureTime = ((java.sql.Time) row[7]).toLocalTime();
+
+				String arrivalStationID = (String) row[8];
+				String arrivalStationName = (String) row[9];
+				LocalDate arrivalDate = ((java.sql.Date) row[10]).toLocalDate();
+				LocalTime arrivalTime = ((java.sql.Time) row[11]).toLocalTime();
+
+				int journeyDuration = ((Number) row[12]).intValue();
+				int numberOfAvailableSeatsLeft = ((Number) row[13]).intValue();
+
+				Station departureStation = new Station(departureStationID, departureStationName);
+				Station arrivalStation = new Station(arrivalStationID, arrivalStationName);
+
+				TrainJourneyOptionItem item = new TrainJourneyOptionItem(
+						trainJourneyID,
+						train,
+						numberOfAvailableSeatsLeft,
+						departureDate,
+						departureTime,
+						arrivalDate,
+						arrivalTime,
+						journeyDuration,
+						departureStation,
+						arrivalStation
+				);
+
+				resultList.add(item);
 			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+		} finally {
+			if (em != null) {
+				em.close();
+			}
 		}
-		return trainJourneyOptionItemList;
+
+		return resultList;
 	}
 
 	public List<Seat> getUnavailableSeats(String trainJourneyID, Station departureStation, Station arrivalStation) {
-		Connection connection = connectDB.getConnection();
-		List<Seat> seatList = new ArrayList<Seat>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<Seat> seats = new ArrayList<>();
 		try {
-			PreparedStatement s = connection
-					.prepareStatement("select SeatID, SeatNumber FROM dbo.fn_GetUnavailableSeats(?, ?, ?)");
-			s.setString(1, trainJourneyID);
-			s.setString(2, departureStation.getStationID());
-			s.setString(3, arrivalStation.getStationID());
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				int seatID = rs.getInt("seatID");
-				int seatNumber = rs.getInt("seatNumber");
-				seatList.add(new Seat(seatID, seatNumber));
+			Query query = em.createNativeQuery(
+					"SELECT SeatID, SeatNumber FROM dbo.fn_GetUnavailableSeats(?, ?, ?)", Object[].class);
+
+			query.setParameter(1, trainJourneyID);
+			query.setParameter(2, departureStation.getStationID());
+			query.setParameter(3, arrivalStation.getStationID());
+
+			List<Object[]> results = query.getResultList();
+			for (Object[] row : results) {
+				int seatID = (int) row[0];
+				int seatNumber = (int) row[1];
+				seats.add(new Seat(seatID, seatNumber));
 			}
-		} catch (SQLException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
-		return seatList;
+		return seats;
 	}
 
 	public List<Stop> getStops(TrainJourney trainJourney, Station departureStation, Station arrivalStation) {
-		Connection connection = connectDB.getConnection();
-		List<Stop> stopList = new ArrayList<Stop>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<Stop> stops = new ArrayList<>();
 		try {
-			PreparedStatement s = connection.prepareStatement("select stopid from dbo.GetStopsForJourney(?, ?, ?)");
-			s.setString(1, trainJourney.getTrainJourneyID());
-			s.setString(2, departureStation.getStationID());
-			s.setString(3, arrivalStation.getStationID());
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String stopID = rs.getString("stopid");
-				stopList.add(new Stop(stopID));
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return stopList;
-	}
+			Query query = em.createNativeQuery(
+					"SELECT stopid FROM dbo.GetStopsForJourney(?, ?, ?)", Object[].class);
 
+			query.setParameter(1, trainJourney.getTrainJourneyID());
+			query.setParameter(2, departureStation.getStationID());
+			query.setParameter(3, arrivalStation.getStationID());
+
+			List<Object[]> results = query.getResultList();
+			for (Object[] row : results) {
+				String stopID = (String) row[0];
+				stops.add(new Stop(stopID));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			em.close();
+		}
+		return stops;
+	}
 }

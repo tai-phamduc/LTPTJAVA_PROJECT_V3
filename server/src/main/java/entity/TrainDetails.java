@@ -1,7 +1,26 @@
 package entity;
 
+import jakarta.persistence.SqlResultSetMapping;
+import jakarta.persistence.ConstructorResult;
+import jakarta.persistence.ColumnResult;
+
 import java.io.Serializable;
 
+@SqlResultSetMapping(
+		name = "TrainDetailsMapping",
+		classes = @ConstructorResult(
+				targetClass = TrainDetails.class,
+				columns = {
+						@ColumnResult(name = "trainID", type = String.class),
+						@ColumnResult(name = "trainNumber", type = String.class),
+						@ColumnResult(name = "numberOfCoaches", type = Integer.class),
+						@ColumnResult(name = "capacity", type = Integer.class),
+						@ColumnResult(name = "numberOfCoachTypes", type = Integer.class),
+						@ColumnResult(name = "coachTypes", type = String.class),
+						@ColumnResult(name = "status", type = String.class)
+				}
+		)
+)
 public class TrainDetails implements Serializable {
 
 	private String trainID;
@@ -13,8 +32,7 @@ public class TrainDetails implements Serializable {
 	private String status;
 
 	public TrainDetails(String trainID, String trainNumber, int numberOfCoaches, int capacity,
-			int numberOfCoachTypes, String coachTypes, String status) {
-		super();
+						int numberOfCoachTypes, String coachTypes, String status) {
 		this.trainID = trainID;
 		this.trainNumber = trainNumber;
 		this.numberOfCoaches = numberOfCoaches;
@@ -86,5 +104,4 @@ public class TrainDetails implements Serializable {
 				+ numberOfCoaches + ", capacity=" + capacity + ", numberOfCoachTypes=" + numberOfCoachTypes
 				+ ", coachTypes=" + coachTypes + ", status=" + status + "]";
 	}
-
 }

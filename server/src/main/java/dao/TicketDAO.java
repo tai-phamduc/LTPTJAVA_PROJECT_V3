@@ -1,157 +1,136 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import entity.*;
+import jakarta.persistence.*;
+import utils.HibernateUtil;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import connectDB.ConnectDB;
-import entity.Order;
-import entity.Passenger;
-import entity.Seat;
-import entity.Ticket;
-import entity.TicketInfo;
-import entity.TrainJourney;
-
 public class TicketDAO {
 
-	private ConnectDB connectDB;
-
-	public TicketDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
+	public Ticket getTicketByID(String ticketID) {
+		EntityManager em = HibernateUtil.getEntityManager();
+		try {
+			return em.find(Ticket.class, ticketID);
+		} finally {
+			em.close();
+		}
 	}
 
-	private TicketInfo createTicketInfo(ResultSet resultSet) throws SQLException {
-		String passengerID = resultSet.getString("PassengerID");
-		LocalDateTime departureDateTime = resultSet.getTimestamp("DepartureDateTime").toLocalDateTime();
-		int coachID = resultSet.getInt("CoachID");
-		int seatID = resultSet.getInt("SeatID");
-		String ticketType = resultSet.getString("OrderStatus");
-		String ticketRefundInfo = resultSet.getString("OrderStatus");
-		double baseTotal = resultSet.getDouble("distance");
+	public String addTicket(TrainJourney trainJourney, Seat seat, Passenger passenger, Order order) {
+		EntityManager em = HibernateUtil.getEntityManager();
+		try {
+			em.getTransaction().begin();
 
-		return new TicketInfo(getTicketByID(resultSet.getString("TicketID")),
-				(new PassengerDAO()).getPassengerByID(passengerID), departureDateTime,
-				(new SeatDAO()).getSeatByID(seatID), (new CoachDAO()).getCoachByID(coachID), ticketType,
-				ticketRefundInfo, baseTotal);
+			Query query = em.createNativeQuery("""
+				INSERT INTO Ticket (TrainJourneyID, SeatID, PassengerID, OrderID)
+				OUTPUT INSERTED.TicketID
+				VALUES (?, ?, ?, ?)
+			""");
+
+			query.setParameter(1, trainJourney.getTrainJourneyID());
+			query.setParameter(2, seat.getSeatID());
+			query.setParameter(3, passenger.getPassengerID());
+			query.setParameter(4, order.getOrderID());
+
+			String generatedTicketID = (String) query.getSingleResult();
+
+			em.getTransaction().commit();
+			return generatedTicketID;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive())
+				em.getTransaction().rollback();
+			e.printStackTrace();
+			return null;
+		} finally {
+			em.close();
+		}
 	}
 
+	public boolean updateTicketStatus(String status, String ticketID) {
+		EntityManager em = HibernateUtil.getEntityManager();
+		try {
+			em.getTransaction().begin();
+			Query query = em.createQuery("UPDATE Ticket t SET t.status = :status WHERE t.ticketID = :ticketID");
+			query.setParameter("status", status);
+			query.setParameter("ticketID", ticketID);
+			int updated = query.executeUpdate();
+			em.getTransaction().commit();
+			return updated > 0;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive())
+				em.getTransaction().rollback();
+			e.printStackTrace();
+			return false;
+		} finally {
+			em.close();
+		}
+	}
+
+	public boolean reassignTicketToNewOrder(String newOrderID, String ticketID) {
+		EntityManager em = HibernateUtil.getEntityManager();
+		try {
+			em.getTransaction().begin();
+			Query query = em.createQuery("UPDATE Ticket t SET t.order.orderID = :newOrderID WHERE t.ticketID = :ticketID");
+			query.setParameter("newOrderID", newOrderID);
+			query.setParameter("ticketID", ticketID);
+			int updated = query.executeUpdate();
+			em.getTransaction().commit();
+			return updated > 0;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive())
+				em.getTransaction().rollback();
+			e.printStackTrace();
+			return false;
+		} finally {
+			em.close();
+		}
+	}
+
+	@SuppressWarnings("unchecked")
 	public List<TicketInfo> fetchEligibleRefundTicketsForOrder(String orderID, boolean isRefund) {
+		EntityManager em = HibernateUtil.getEntityManager();
 		List<TicketInfo> tickets = new ArrayList<>();
-		Connection connection = connectDB.getConnection();
-		PreparedStatement statement = null;
-		ResultSet resultSet = null;
 
 		try {
-			statement = connection.prepareStatement("{CALL GetAllTicketsByOrderID(?)}");
-			statement.setString(1, orderID);
+			Query query = em.createNativeQuery("EXEC GetAllTicketsByOrderID ?", Tuple.class);
+			query.setParameter(1, orderID);
+			List<Tuple> results = query.getResultList();
 
-			resultSet = statement.executeQuery();
+			for (Tuple row : results) {
+				String ticketID = row.get("TicketID", String.class);
+				String passengerID = row.get("PassengerID", String.class);
+				LocalDateTime departureDateTime = row.get("DepartureDateTime", java.sql.Timestamp.class).toLocalDateTime();
+				int seatID = row.get("SeatID", Integer.class);
+				int coachID = row.get("CoachID", Integer.class);
+				String status = row.get("OrderStatus", String.class);
+				double distance = row.get("distance", Double.class);
 
-			while (resultSet.next()) {
-				Ticket ticket = getTicketByID(resultSet.getString("TicketID"));
+				Ticket ticket = getTicketByID(ticketID);
+				if ((isRefund && !ticket.getStatus().equalsIgnoreCase("Đã Trả")) ||
+						(!isRefund && ticket.getStatus().equalsIgnoreCase("Bình thường"))) {
 
-				if (!ticket.getStatus().equalsIgnoreCase("Đã Trả") && isRefund) {
-					tickets.add(createTicketInfo(resultSet));
-				} else if (ticket.getStatus().equalsIgnoreCase("Bình thường") && !isRefund) {
-					tickets.add(createTicketInfo(resultSet));
+					TicketInfo info = new TicketInfo(
+							ticket,
+							new PassengerDAO().getPassengerByID(passengerID),
+							departureDateTime,
+							new SeatDAO().getSeatByID(seatID),
+							new CoachDAO().getCoachByID(coachID),
+							status,
+							status,
+							distance
+					);
+					tickets.add(info);
 				}
 			}
-		} catch (SQLException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 
 		return tickets;
 	}
-
-	public Ticket getTicketByID(String ticketID) {
-		String query = "SELECT * FROM Ticket WHERE TicketID = ?";
-		Ticket ticket = null;
-		Connection connection = connectDB.getConnection();
-		PreparedStatement statement = null;
-		ResultSet rs = null;
-
-		try {
-			statement = connection.prepareStatement(query);
-			statement.setString(1, ticketID);
-
-			rs = statement.executeQuery();
-
-			// public Ticket(String ticketID, String status, TrainJourney trainJourney, Seat
-			// seat, Passenger passenger, Order order) {}
-			if (rs.next()) {
-				ticket = new Ticket(rs.getString("TicketID"), rs.getString("Status"),
-						(new TrainJourneyDAO()).getTrainJourneyByID(rs.getString("TrainJourneyID")),
-						(new SeatDAO()).getSeatByID(rs.getInt("SeatID")),
-						(new PassengerDAO().getPassengerByID(rs.getString("PassengerID"))),
-						(new OrderDAO()).getOrderByID(rs.getString("OrderID")));
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return ticket;
-	}
-
-	public String addTicket(TrainJourney trainJourney, Seat seat, Passenger passenger, Order order) {
-		Connection connection = connectDB.getConnection();
-		String insertSQL = "insert into ticket (trainJourneyID, seatID, passengerID, orderID) OUTPUT inserted.TicketID values (?, ?, ?, ?)";
-//		String insertSQL = "insert into ticket (trainJourneyID, status, seatID, passengerID, orderID) OUTPUT inserted.TicketID values (?, ?, ?, ?)";
-		try {
-			PreparedStatement s = connection.prepareStatement(insertSQL);
-			s.setString(1, trainJourney.getTrainJourneyID());
-			// s.setString(2, "Đã Trả");
-			s.setInt(2, seat.getSeatID());
-			s.setString(3, passenger.getPassengerID());
-			s.setString(4, order.getOrderID());
-
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				return rs.getString(1);
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
-
-	public boolean reassignTicketToNewOrder(String newOrderID, String ticketID) {
-		Connection connection = null;
-		PreparedStatement statement = null;
-		int rowsAffected = 0;
-		connection = connectDB.getConnection();
-		String query = "UPDATE Ticket SET OrderID = ? WHERE TicketID = ?";
-		try {
-			statement = connection.prepareStatement(query);
-			statement.setString(1, newOrderID);
-			statement.setString(2, ticketID);
-
-			rowsAffected = statement.executeUpdate();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return rowsAffected > 0;
-	}
-
-	public boolean updateTicketStatus(String status, String ticketID) {
-		Connection connection = null;
-		PreparedStatement statement = null;
-		int rowsAffected = 0;
-		connection = connectDB.getConnection();
-		String query = "UPDATE Ticket SET Status = ? WHERE TicketID = ?";
-		try {
-			statement = connection.prepareStatement(query);
-			statement.setString(1, status);
-			statement.setString(2, ticketID);
-
-			rowsAffected = statement.executeUpdate();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return rowsAffected > 0;
-	}
-
 }

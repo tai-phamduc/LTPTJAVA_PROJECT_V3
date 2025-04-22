@@ -2,11 +2,29 @@ package entity;
 
 import java.io.Serializable;
 import java.util.Objects;
+import jakarta.persistence.*;
 
+@Entity
+@Table(name = "Station")
+@NamedStoredProcedureQuery(
+		name = "Station.getStationsForTicket",
+		procedureName = "GetStationsForTicket",
+		parameters = {
+				@StoredProcedureParameter(mode = ParameterMode.IN, name = "ticketID", type = String.class)
+		},
+		resultClasses = Station.class
+)
 public class Station implements Serializable {
 
+	@Id
+	@Column(name = "stationID", length = 12)
 	private String stationID;
+
+	@Column(name = "stationName", nullable = false, length = 255)
 	private String stationName;
+
+	public Station() {
+	}
 
 	public Station(String stationID, String stationName) {
 		super();
@@ -14,12 +32,12 @@ public class Station implements Serializable {
 		this.stationName = stationName;
 	}
 
-    public Station(String stationID) {
+	public Station(String stationID) {
 		super();
 		this.stationID = stationID;
-    }
+	}
 
-    public String getStationID() {
+	public String getStationID() {
 		return stationID;
 	}
 
@@ -56,5 +74,4 @@ public class Station implements Serializable {
 		Station other = (Station) obj;
 		return Objects.equals(stationName, other.stationName);
 	}
-
 }

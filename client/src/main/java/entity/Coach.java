@@ -1,13 +1,29 @@
 package entity;
 
+import jakarta.persistence.*;
+
 import java.io.Serializable;
 
+@Entity
+@Table(name = "Coach")
 public class Coach implements Serializable {
 
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "CoachID")
 	private int coachID;
+
+	@Column(name = "CoachNumber", nullable = false)
 	private int coachNumber;
+
+	@Column(name = "CoachType", nullable = false, length = 50)
 	private String coachType;
+
+	@Column(name = "Capacity", nullable = false)
 	private int capacity;
+
+	@ManyToOne
+	@JoinColumn(name = "TrainID", nullable = false)
 	private Train train;
 
 	public Coach(int coachID, int coachNumber, String coachType, int capacity, Train train) {
@@ -36,6 +52,10 @@ public class Coach implements Serializable {
 
 	public Coach(int coachID) {
 		this.coachID = coachID;
+	}
+
+	public Coach() {
+
 	}
 
 	public int getCoachID() {
@@ -83,5 +103,4 @@ public class Coach implements Serializable {
 		return "Coach [coachID=" + coachID + ", coachNumber=" + coachNumber + ", coachType=" + coachType + ", capacity="
 				+ capacity + ", train=" + train + "]";
 	}
-
 }

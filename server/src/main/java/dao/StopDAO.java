@@ -1,36 +1,40 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Time;
-
-import connectDB.ConnectDB;
 import entity.Stop;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
+import utils.HibernateUtil;
 
 public class StopDAO {
 
-	private ConnectDB connectDB;
-
-	public StopDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
-
 	public int updateStop(Stop stop) {
-		Connection connection = connectDB.getConnection();
+		EntityManager em = HibernateUtil.getEntityManager();
+		EntityTransaction transaction = null;
+
 		try {
-			PreparedStatement s = connection.prepareStatement(
-					"UPDATE Stop SET departureDate = ?, arrivalTime = ?, departureTime = ? WHERE stopID = ?");
-			s.setDate(1, Date.valueOf(stop.getDepartureDate()));
-			s.setTime(2, Time.valueOf(stop.getArrivalTime()));
-			s.setTime(3, Time.valueOf(stop.getDepartureTime()));
-			s.setString(4, stop.getStopID());
-			return s.executeUpdate();
-		} catch (SQLException e) {
+			transaction = em.getTransaction();
+			transaction.begin();
+
+			Stop existingStop = em.find(Stop.class, stop.getStopID());
+			if (existingStop != null) {
+				existingStop.setDepartureDate(stop.getDepartureDate());
+				existingStop.setArrivalTime(stop.getArrivalTime());
+				existingStop.setDepartureTime(stop.getDepartureTime());
+				em.merge(existingStop);
+				transaction.commit();
+				return 1; // Success
+			} else {
+				return 0; // Stop not found
+			}
+
+		} catch (Exception e) {
+			if (transaction != null && transaction.isActive()) {
+				transaction.rollback();
+			}
 			e.printStackTrace();
+			return -1; // Error
+		} finally {
+			em.close();
 		}
-		return -1;
 	}
 }

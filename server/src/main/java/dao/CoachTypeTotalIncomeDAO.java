@@ -2,40 +2,41 @@ package dao;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import connectDB.ConnectDB;
 import entity.CoachTypeTotalIncome;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import utils.HibernateUtil;
 
 public class CoachTypeTotalIncomeDAO {
-	private ConnectDB connectDB;
-
-	public CoachTypeTotalIncomeDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
 
 	public List<CoachTypeTotalIncome> getCoachTypeTotalIncome(int monthValue, int year) {
-		Connection connection = connectDB.getConnection();
-		List<CoachTypeTotalIncome> coachTypeTotalIncomeList = new ArrayList<CoachTypeTotalIncome>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<CoachTypeTotalIncome> resultList = null;
+
 		try {
-			PreparedStatement s = connection.prepareStatement("select * from dbo.GetTotalTicketIncomeByCoachType(?, ?)");
-			s.setInt(1, monthValue);
-			s.setInt(2, year);
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String coachType = rs.getString("CoachType");
-				BigDecimal totalTicketIncome = rs.getBigDecimal("TotalTicketIncome").setScale(2, RoundingMode.HALF_UP);
-				coachTypeTotalIncomeList.add(new CoachTypeTotalIncome(coachType, totalTicketIncome));
-			}
-		} catch (SQLException e) {
+			Query query = em.createNativeQuery(
+					"SELECT * FROM dbo.GetTotalTicketIncomeByCoachType(?, ?)",
+					"CoachTypeTotalIncomeMapping"
+			);
+			query.setParameter(1, monthValue);
+			query.setParameter(2, year);
+
+			@SuppressWarnings("unchecked")
+			List<CoachTypeTotalIncome> results = query.getResultList();
+
+			resultList = results;
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			if (em != null && em.isOpen()) {
+				em.close();
+			}
 		}
-		return coachTypeTotalIncomeList;
+
+		return resultList;
 	}
+
 }

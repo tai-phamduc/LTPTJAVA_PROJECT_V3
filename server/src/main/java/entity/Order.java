@@ -4,19 +4,56 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "Order")
 public class Order implements Serializable {
 
+	@Id
+	@Column(name = "OrderID", length = 12)
 	private String orderID;
+
+	@Column(name = "OrderDate", nullable = false)
 	private LocalDateTime orderDate;
+
+	@Column(name = "Note", length = 255)
 	private String note;
+
+	@Column(name = "TimeRemaining", nullable = false)
 	private LocalTime timeRemaining;
+
+	@Column(name = "OrderStatus", nullable = false, length = 30)
 	private String orderStatus;
+
+	@ManyToOne
+	@JoinColumn(name = "CustomerID", nullable = false)
 	private Customer customer;
+
+	@ManyToOne
+	@JoinColumn(name = "TrainJourneyID", nullable = false)
 	private TrainJourney trainJourney;
+
+	@ManyToOne
+	@JoinColumn(name = "EmployeeID", nullable = false)
 	private Employee employee;
+
+	@Column(name = "TaxID", length = 6, nullable = false)
+	private String taxID;
+
+	public Order() {
+	}
 
 	public Order(String orderID) {
 		super();
+		this.orderID = orderID;
+	}
+
+	public String getOrderID() {
+		return orderID;
+	}
+
+	public void setOrderID(String orderID) {
 		this.orderID = orderID;
 	}
 
@@ -76,8 +113,12 @@ public class Order implements Serializable {
 		this.employee = employee;
 	}
 
-	public String getOrderID() {
-		return orderID;
+	public String getTaxID() {
+		return taxID;
+	}
+
+	public void setTaxID(String taxID) {
+		this.taxID = taxID;
 	}
 
 	@Override
@@ -86,5 +127,4 @@ public class Order implements Serializable {
 				+ timeRemaining + ", orderStatus=" + orderStatus + ", customer=" + customer + ", trainJourney="
 				+ trainJourney + ", employee=" + employee + "]";
 	}
-
 }

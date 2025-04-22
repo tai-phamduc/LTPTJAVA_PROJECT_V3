@@ -1,12 +1,27 @@
 package entity;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 import java.io.Serializable;
 
+@Entity
+@Table(name = "Train") // Assuming table name is "Train" (adjust if different)
 public class Train implements Serializable {
+
+	@Id
+	@Column(name = "TrainID") // Matches your database column name
 	private String trainID;
+
+	@Column(name = "TrainNumber", nullable = false) // Assuming trainNumber cannot be null
 	private String trainNumber;
+
+	@Column(name = "Status", nullable = false) // Assuming status cannot be null
 	private String status;
 
+	// Original constructors (unchanged)
 	public Train(String trainID, String trainNumber, String status) {
 		super();
 		this.trainID = trainID;
@@ -19,7 +34,10 @@ public class Train implements Serializable {
 		this.status = trangThai;
 	}
 
+	public Train() {
+	}
 
+	// Original getters and setters (unchanged)
 	public String getTrainID() {
 		return trainID;
 	}
@@ -44,9 +62,9 @@ public class Train implements Serializable {
 		this.status = status;
 	}
 
+	// Original toString (unchanged)
 	@Override
 	public String toString() {
 		return this.getTrainNumber();
 	}
-
 }

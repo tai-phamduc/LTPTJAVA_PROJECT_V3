@@ -1,167 +1,145 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
+import entity.Station;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import jakarta.persistence.StoredProcedureQuery;
+import jakarta.persistence.TypedQuery;
+import utils.HibernateUtil;
+
 import java.util.List;
 
-import connectDB.ConnectDB;
-import entity.Station;
-
 public class StationDAO {
-	private ConnectDB connectDB;
-
-	public StationDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
 
 	public List<Station> getAllStation() {
-		Connection connection = connectDB.getConnection();
-		List<Station> stationList = new ArrayList<Station>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<Station> stationList = null;
 		try {
-			PreparedStatement s = connection.prepareStatement("SELECT StationID, StationName FROM Station");
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String stationID = rs.getString("StationID");
-				String stationName = rs.getString("StationName");
-				stationList.add(new Station(stationID, stationName));
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+			TypedQuery<Station> query = em.createQuery("FROM Station", Station.class);
+			stationList = query.getResultList();
+		} finally {
+			em.close();
 		}
 		return stationList;
 	}
 
 	public String addNewStation(String stationName) {
-		Connection connection = null;
-		PreparedStatement statement = null;
-		ResultSet resultSet = null;
+		EntityManager em = HibernateUtil.getEntityManager();
 		String generatedStationID = null;
 
 		try {
-			connection = connectDB.getConnection();
-			if (connection == null) {
-				return null;
+			em.getTransaction().begin();
+
+			// Insert using native SQL (letting DB generate StationID)
+			Query query = em.createNativeQuery("""
+            INSERT INTO Station (StationName) VALUES (?)
+        """);
+			query.setParameter(1, stationName);
+			query.executeUpdate();
+
+			// Optional: Fetch back the inserted station using the station name
+			// Make sure stationName is unique or this will return the first match
+			Station insertedStation = em.createQuery(
+							"SELECT s FROM Station s WHERE s.stationName = :stationName ORDER BY s.stationID DESC",
+							Station.class)
+					.setParameter("stationName", stationName)
+					.setMaxResults(1)
+					.getSingleResult();
+
+			em.getTransaction().commit();
+			generatedStationID = insertedStation.getStationID();
+
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
 			}
-
-			statement = connection
-					.prepareStatement("INSERT INTO Station (StationName) OUTPUT inserted.StationID VALUES (?)");
-
-			statement.setString(1, stationName);
-
-			resultSet = statement.executeQuery();
-
-			if (resultSet.next()) {
-				generatedStationID = resultSet.getString("StationID");
-			}
-		} catch (SQLException e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 
 		return generatedStationID;
 	}
 
+
 	public int deleteStationByID(String stationID) {
-		Connection connection = connectDB.getConnection();
-		String deleteSQL = "DELETE FROM Station WHERE StationID = ?";
-		PreparedStatement preparedStatement;
+		EntityManager em = HibernateUtil.getEntityManager();
+		int rowsAffected = 0;
 		try {
-			preparedStatement = connection.prepareStatement(deleteSQL);
-			preparedStatement.setString(1, stationID);
-			int rowsAffected = preparedStatement.executeUpdate();
-			return rowsAffected;
-		} catch (SQLException e) {
+			em.getTransaction().begin();
+			Station station = em.find(Station.class, stationID);
+			if (station != null) {
+				em.remove(station);
+				rowsAffected = 1;
+			}
+			em.getTransaction().commit();
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) em.getTransaction().rollback();
 			e.printStackTrace();
-			return -1;
+			rowsAffected = -1;
+		} finally {
+			em.close();
 		}
+		return rowsAffected;
 	}
 
 	public List<Station> findStationByName(String stationName) {
-		Connection connection = connectDB.getConnection();
-		String querySQL = "SELECT * FROM Station WHERE StationName LIKE ?";
-		List<Station> stations = new ArrayList<Station>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<Station> stations = null;
 		try {
-			PreparedStatement preparedStatement = connection.prepareStatement(querySQL);
-			preparedStatement.setString(1, "%" + stationName + "%");
-			ResultSet resultSet = preparedStatement.executeQuery();
-			while (resultSet.next()) {
-				String id = resultSet.getString("StationID");
-				String name = resultSet.getString("StationName");
-
-				stations.add(new Station(id, name));
-			}
-			return stations;
-		} catch (SQLException e) {
+			TypedQuery<Station> query = em.createQuery(
+					"FROM Station WHERE stationName LIKE :name", Station.class);
+			query.setParameter("name", "%" + stationName + "%");
+			stations = query.getResultList();
+		} catch (Exception e) {
 			e.printStackTrace();
-			return null;
+		} finally {
+			em.close();
 		}
+		return stations;
 	}
 
 	public Station getStationByID(String stationID) {
-		Connection connection = connectDB.getConnection();
-		String querySQL = "SELECT * FROM Station WHERE StationID = ?";
+		EntityManager em = HibernateUtil.getEntityManager();
 		Station station = null;
 		try {
-			PreparedStatement preparedStatement = connection.prepareStatement(querySQL);
-			preparedStatement.setString(1, stationID);
-			ResultSet resultSet = preparedStatement.executeQuery();
-			if (resultSet.next()) {
-				String id = resultSet.getString("StationID");
-				String name = resultSet.getString("StationName");
-
-				station = new Station(id, name);
-			}
-		} catch (SQLException e) {
+			station = em.find(Station.class, stationID);
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 		return station;
 	}
 
 	public boolean updateStation(Station station) {
-		Connection connection = null;
-		PreparedStatement statement = null;
-
+		EntityManager em = HibernateUtil.getEntityManager();
+		boolean success = false;
 		try {
-			connection = connectDB.getConnection();
-			if (connection == null) {
-				System.err.println("Failed to establish a connection.");
-				return false;
-			}
-
-			String sql = "UPDATE Station SET StationName = ? WHERE StationID = ?";
-			statement = connection.prepareStatement(sql);
-
-			statement.setString(1, station.getStationName());
-			statement.setString(2, station.getStationID());
-
-			int status = statement.executeUpdate();
-
-			if (status == 1)
-				return true;
-		} catch (SQLException e) {
+			em.getTransaction().begin();
+			em.merge(station);
+			em.getTransaction().commit();
+			success = true;
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) em.getTransaction().rollback();
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
-		return false;
+		return success;
 	}
 
 	public List<Station> getStationsForTicket(String ticketID) {
-		Connection connection = connectDB.getConnection();
-		List<Station> stations = new ArrayList<Station>();
+		EntityManager em = HibernateUtil.getEntityManager();
+		List<Station> stations = null;
 		try {
-			PreparedStatement s = connection.prepareStatement("{CALL GetStationsForTicket(?)}");
-			s.setString(1, ticketID);
-
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String stationID = rs.getString("StationID");
-				String stationName = rs.getString("StationName");
-				stations.add(new Station(stationID, stationName));
-			}
-		} catch (SQLException e) {
+			StoredProcedureQuery query = em.createNamedStoredProcedureQuery("Station.getStationsForTicket");
+			query.setParameter("ticketID", ticketID);
+			stations = query.getResultList();
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 		return stations;
 	}

@@ -1,15 +1,35 @@
 package entity;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Objects;
 
+@Entity
+@Table(name = "Passenger")
 public class Passenger implements Serializable {
+
+	@Id
+	@Column(name = "PassengerID", length = 12)
 	private String passengerID;
+
+	@Column(name = "FullName", nullable = false, length = 255)
 	private String fullName;
+
+	@Column(name = "DateOfBirth")
 	private LocalDate dateOfBirth;
-	private String identifierType;
+
+	@Column(name = "Identifier", length = 50)
 	private String identifier;
+
+	@Column(name = "IdentifierType", length = 20)
+	private String identifierType;
+
+	@Column(name = "PassengerType", nullable = false, length = 50)
 	private String passengerType;
 
 	public Passenger(String passengerID, String fullName, LocalDate dateOfBirth, String identifier,
@@ -110,5 +130,4 @@ public class Passenger implements Serializable {
 		Passenger other = (Passenger) obj;
 		return Objects.equals(passengerID, other.passengerID);
 	}
-
 }

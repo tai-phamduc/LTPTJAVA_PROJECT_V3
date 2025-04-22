@@ -42,8 +42,8 @@ public class TrainJourneyChoosingDialog extends JDialog {
 		DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 		chieuDiLabel = new JLabel(
 				"Chiều đi: ngày " + trainJourneyOptionItemList.get(0).getDepartureDate().format(dateFormatter) + " từ "
-						+ trainJourneyOptionItemList.get(0).getDepartureStation().getStationName() + " đến "
-						+ trainJourneyOptionItemList.get(0).getArrivalStation().getStationName());
+						+ trainJourneyOptionItemList.get(0).getDepartureStation() + " đến "
+						+ trainJourneyOptionItemList.get(0).getArrivalStation());
 		chieuDiLabel.putClientProperty(FlatClientProperties.STYLE,
 				"background: $primary; foreground: $clr-white; font:bold +12;");
 		chieuDiLabel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));

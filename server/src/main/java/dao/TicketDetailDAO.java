@@ -1,31 +1,33 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-
-import connectDB.ConnectDB;
 import entity.Stop;
 import entity.Ticket;
+import entity.TicketDetail;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
+import utils.HibernateUtil;
 
 public class TicketDetailDAO {
-	
-	private ConnectDB connectDB;
-	
-	public TicketDetailDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
 
 	public void themChiTietVe(Stop stop, Ticket ticket) {
-		Connection connection = connectDB.getConnection();
+		EntityManager em = HibernateUtil.getEntityManager();
+		EntityTransaction tx = null;
+
 		try {
-			PreparedStatement s = connection.prepareStatement("insert into TicketDetail (stopID, ticketID) values (?, ?)");
-			s.setString(1, stop.getStopID());
-			s.setString(2, ticket.getTicketID());
-			s.executeUpdate();
-		} catch (SQLException e) {
+			tx = em.getTransaction();
+			tx.begin();
+
+			TicketDetail detail = new TicketDetail(stop, ticket);
+			em.persist(detail);
+
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null && tx.isActive()) {
+				tx.rollback();
+			}
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 	}
 }

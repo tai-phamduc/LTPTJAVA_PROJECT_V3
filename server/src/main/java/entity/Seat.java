@@ -2,7 +2,6 @@ package entity;
 
 import java.io.Serializable;
 import java.util.Objects;
-
 import jakarta.persistence.*;
 
 @Entity
@@ -20,6 +19,9 @@ public class Seat implements Serializable {
 	@ManyToOne
 	@JoinColumn(name = "CoachID", nullable = false)
 	private Coach coach;
+
+	public Seat() {
+	}
 
 	public Seat(int seatID, int seatNumber, Coach coach) {
 		super();
@@ -42,10 +44,6 @@ public class Seat implements Serializable {
 
 	public Seat(int seatID) {
 		this.seatID = seatID;
-	}
-
-	public Seat() {
-
 	}
 
 	public int getSeatID() {
@@ -88,5 +86,4 @@ public class Seat implements Serializable {
 		Seat other = (Seat) obj;
 		return seatID == other.seatID;
 	}
-
 }

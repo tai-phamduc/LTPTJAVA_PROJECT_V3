@@ -1,6 +1,7 @@
 package entity;
 
 import jakarta.persistence.*;
+
 import java.io.Serializable;
 import java.time.LocalDate;
 

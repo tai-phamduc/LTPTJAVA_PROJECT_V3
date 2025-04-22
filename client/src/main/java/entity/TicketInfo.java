@@ -19,7 +19,7 @@ public class TicketInfo implements Serializable {
 	private double distance;
 
 	public TicketInfo(Ticket ticket, Passenger passenger, LocalDateTime depatureDateTime, Seat seat, Coach coach,
-			String ticketType, String ticketRefundInfo, double baseTotal) {
+					  String ticketType, String ticketRefundInfo, double baseTotal) {
 		super();
 		this.ticket = ticket;
 		this.passenger = passenger;

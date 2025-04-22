@@ -10,7 +10,6 @@ public class TotalIncome implements Serializable {
 	private BigDecimal sumOfTicketAndService;
 
 	public TotalIncome(BigDecimal sumOfTicket, BigDecimal sumOfSevice, BigDecimal sumOfTicketAndService) {
-		super();
 		this.sumOfTicket = sumOfTicket;
 		this.sumOfSevice = sumOfSevice;
 		this.sumOfTicketAndService = sumOfTicketAndService;
@@ -42,8 +41,6 @@ public class TotalIncome implements Serializable {
 
 	@Override
 	public String toString() {
-		return "TotalIncome [sumOfTicket=" + sumOfTicket + ", sumOfSevice=" + sumOfSevice + ", sumOfTicketAndService="
-				+ sumOfTicketAndService + "]";
+		return "TotalIncome [sumOfTicket=" + sumOfTicket + ", sumOfSevice=" + sumOfSevice + ", sumOfTicketAndService=" + sumOfTicketAndService + "]";
 	}
-
 }

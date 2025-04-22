@@ -5,8 +5,8 @@ import java.net.Socket;
 import java.util.HashMap;
 
 public class ServerFetcher {
-    private static final String SERVER_ADDRESS = "localhost";
-    private static final int SERVER_PORT = 9999;
+    private static final String SERVER_ADDRESS = "192.168.1.15";
+    private static final int SERVER_PORT = 1111;
 
     public static Object fetch(String type, String action, HashMap<String, String> payload) {
         try (

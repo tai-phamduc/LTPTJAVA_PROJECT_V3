@@ -7,25 +7,28 @@ import java.time.LocalTime;
 public class TrainJourneyOptionItem implements Serializable {
 
 	private String trainJourneyID;
-
 	private Train train;
 	private int numberOfAvailableSeatsLeft;
-
 	private LocalDate departureDate;
 	private LocalTime departureTime;
-
 	private LocalDate arrivalDate;
 	private LocalTime arrivalTime;
-
 	private int journeyDuration;
-
 	private Station departureStation;
 	private Station arrivalStation;
 
-	public TrainJourneyOptionItem(String trainJourneyID, Train train, int numberOfAvailableSeatsLeft,
-			LocalDate departureDate, LocalTime departureTime, LocalDate arrivalDate, LocalTime arrivalTime,
-			int journeyDuration, Station departureStation, Station arrivalStation) {
-		super();
+	public TrainJourneyOptionItem(
+			String trainJourneyID,
+			Train train,
+			int numberOfAvailableSeatsLeft,
+			LocalDate departureDate,
+			LocalTime departureTime,
+			LocalDate arrivalDate,
+			LocalTime arrivalTime,
+			int journeyDuration,
+			Station departureStation,
+			Station arrivalStation
+	) {
 		this.trainJourneyID = trainJourneyID;
 		this.train = train;
 		this.numberOfAvailableSeatsLeft = numberOfAvailableSeatsLeft;
@@ -126,5 +129,4 @@ public class TrainJourneyOptionItem implements Serializable {
 				+ ", journeyDuration=" + journeyDuration + ", departureStation=" + departureStation
 				+ ", arrivalStation=" + arrivalStation + "]";
 	}
-
 }

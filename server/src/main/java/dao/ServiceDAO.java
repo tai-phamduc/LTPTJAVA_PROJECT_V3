@@ -1,176 +1,133 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import entity.Service;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
+import utils.HibernateUtil;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import connectDB.ConnectDB;
-import entity.Service;
-
 public class ServiceDAO {
 
-	private ConnectDB connectDB;
-
-	public ServiceDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
-
 	public List<Service> getServiceByType(String type) {
-		List<Service> services = new ArrayList<>();
-		Connection connection = connectDB.getConnection();
-		String querySQL = "SELECT * FROM Service WHERE Type = ?";
-		PreparedStatement statement = null;
-		ResultSet resultSet = null;
-
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			statement = connection.prepareStatement(querySQL);
-			statement.setString(1, type);
-			resultSet = statement.executeQuery();
-			while (resultSet.next()) {
-				Service service = new Service(resultSet.getString("ServiceID"));
-				service.setServiceName(resultSet.getString("ServiceName"));
-				service.setPrice(resultSet.getDouble("Price"));
-				service.setImageSource(resultSet.getString("ImageSource"));
-				service.setType(type);
-
-				services.add(service);
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+			TypedQuery<Service> query = em.createQuery(
+					"SELECT s FROM Service s WHERE s.type = :type", Service.class);
+			query.setParameter("type", type);
+			return query.getResultList();
+		} finally {
+			em.close();
 		}
-		return services;
 	}
 
 	public List<Service> findFoodByName(String serviceName) {
-		Connection connection = connectDB.getConnection();
-		String querySQL = "SELECT * FROM Service WHERE ServiceName LIKE ? AND Type = N'Đồ ăn'";
-		List<Service> foods = new ArrayList<Service>();
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement preparedStatement = connection.prepareStatement(querySQL);
-			preparedStatement.setString(1, "%" + serviceName + "%");
-			ResultSet resultSet = preparedStatement.executeQuery();
-			while (resultSet.next()) {
-				String id = resultSet.getString("ServiceID");
-				String name = resultSet.getString("ServiceName");
-				double price = resultSet.getDouble("Price");
-				String type = resultSet.getString("Type");
-				String image = resultSet.getString("ImageSource");
-
-				foods.add(new Service(id, name, price, type, image));
-			}
-			return foods;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
+			TypedQuery<Service> query = em.createQuery(
+					"SELECT s FROM Service s WHERE s.serviceName LIKE :name AND s.type = 'Đồ ăn'", Service.class);
+			query.setParameter("name", "%" + serviceName + "%");
+			return query.getResultList();
+		} finally {
+			em.close();
 		}
 	}
 
 	public List<Service> findDrinkByName(String serviceName) {
-		Connection connection = connectDB.getConnection();
-		String querySQL = "SELECT * FROM Service WHERE ServiceName LIKE ? AND ServiceType = 'Dồ uống'";
-		List<Service> drinks = new ArrayList<Service>();
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement preparedStatement = connection.prepareStatement(querySQL);
-			preparedStatement.setString(1, "%" + serviceName + "%");
-			ResultSet resultSet = preparedStatement.executeQuery();
-			while (resultSet.next()) {
-				String id = resultSet.getString("ServiceID");
-				String name = resultSet.getString("ServiceName");
-				double price = resultSet.getDouble("ServicePrice");
-				String image = resultSet.getString("ImageSource");
-
-				drinks.add(new Service(id, name, price, "Drink", image));
-			}
-			return drinks;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
+			TypedQuery<Service> query = em.createQuery(
+					"SELECT s FROM Service s WHERE s.serviceName LIKE :name AND s.type = 'Dồ uống'", Service.class);
+			query.setParameter("name", "%" + serviceName + "%");
+			return query.getResultList();
+		} finally {
+			em.close();
 		}
 	}
 
 	public String addNewService(Service newService) {
-		Connection connection = null;
-		PreparedStatement preparedStatement = null;
-		ResultSet resultSet = null;
-		String generatedServiceID = null;
-
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			connection = connectDB.getConnection();
-			String insertServiceSQL = "INSERT INTO Service (ServiceName, Price, Type, ImageSource) OUTPUT inserted.ServiceID VALUES (?, ?, ?, ?)";
-			preparedStatement = connection.prepareStatement(insertServiceSQL);
+			em.getTransaction().begin();
 
-			preparedStatement.setString(1, newService.getServiceName());
-			preparedStatement.setDouble(2, newService.getPrice());
-			preparedStatement.setString(3, newService.getType());
-			preparedStatement.setString(4, newService.getImageSource());
+			Query query = em.createNativeQuery("""
+			INSERT INTO Service (ServiceName, Price, Type, ImageSource)
+			OUTPUT INSERTED.ServiceID
+			VALUES (?, ?, ?, ?)
+		""");
 
-			resultSet = preparedStatement.executeQuery();
+			query.setParameter(1, newService.getServiceName());
+			query.setParameter(2, newService.getPrice());
+			query.setParameter(3, newService.getType());
+			query.setParameter(4, newService.getImageSource());
 
-			if (resultSet.next()) {
-				generatedServiceID = resultSet.getString("ServiceID");
+			// Get generated ID from OUTPUT
+			String generatedId = (String) query.getSingleResult();
+
+			em.getTransaction().commit();
+			return generatedId;
+
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
 			}
-		} catch (SQLException e) {
 			e.printStackTrace();
+			return null;
+		} finally {
+			em.close();
 		}
-
-		return generatedServiceID;
 	}
 
+
 	public boolean removeServiceByID(String serviceID) {
-		Connection connection = connectDB.getConnection();
-		String deleteSQL = "DELETE FROM Service WHERE ServiceID = ?";
-		PreparedStatement preparedStatement = null;
+		EntityManager em = HibernateUtil.getEntityManager();
+		EntityTransaction tx = em.getTransaction();
 		try {
-			preparedStatement = connection.prepareStatement(deleteSQL);
-			preparedStatement.setString(1, serviceID);
-			int rowsAffected = preparedStatement.executeUpdate();
-			return rowsAffected > 0;
-		} catch (SQLException e) {
+			tx.begin();
+			Service service = em.find(Service.class, serviceID);
+			if (service != null) {
+				em.remove(service);
+				tx.commit();
+				return true;
+			}
+			tx.rollback();
+			return false;
+		} catch (Exception e) {
 			e.printStackTrace();
+			if (tx.isActive()) tx.rollback();
+			return false;
+		} finally {
+			em.close();
 		}
-		return false;
 	}
 
 	public boolean updateNewProduct(Service newService) {
-		Connection connection = connectDB.getConnection();
-		PreparedStatement preparedStatement = null;
-
-		String updateSQL = "UPDATE Service SET ServiceName = ?, Price = ?, [Type] = ?, ImageSource = ? WHERE ServiceID = ?";
+		EntityManager em = HibernateUtil.getEntityManager();
+		EntityTransaction tx = em.getTransaction();
 		try {
-			preparedStatement = connection.prepareStatement(updateSQL);
-			preparedStatement.setString(1, newService.getServiceName());
-			preparedStatement.setDouble(2, newService.getPrice());
-			preparedStatement.setString(3, newService.getType());
-			preparedStatement.setString(4, newService.getImageSource());
-			preparedStatement.setString(5, newService.getServiceID());
-
-			int rowsAffected = preparedStatement.executeUpdate();
-
-			return rowsAffected > 0;
-		} catch (SQLException e) {
+			tx.begin();
+			em.merge(newService);
+			tx.commit();
+			return true;
+		} catch (Exception e) {
 			e.printStackTrace();
+			if (tx.isActive()) tx.rollback();
+			return false;
+		} finally {
+			em.close();
 		}
-		return false;
 	}
 
 	public List<String> getAllServiceTypes() {
-		Connection connection = connectDB.getConnection();
-		List<String> serviceTypes = new ArrayList<String>();
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement s = connection.prepareStatement("SELECT DISTINCT type FROM Service");
-			ResultSet rs = s.executeQuery();
-			while (rs.next()) {
-				String type = rs.getString("type");
-				serviceTypes.add(type);
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+			return em.createQuery(
+					"SELECT DISTINCT s.type FROM Service s", String.class).getResultList();
+		} finally {
+			em.close();
 		}
-		return serviceTypes;
 	}
-
 }

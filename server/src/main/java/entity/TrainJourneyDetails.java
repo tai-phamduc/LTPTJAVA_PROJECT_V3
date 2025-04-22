@@ -1,7 +1,27 @@
 package entity;
 
+import jakarta.persistence.SqlResultSetMapping;
+import jakarta.persistence.ConstructorResult;
+import jakarta.persistence.ColumnResult;
+
 import java.io.Serializable;
 
+@SqlResultSetMapping(
+		name = "TrainJourneyDetailsMapping",
+		classes = @ConstructorResult(
+				targetClass = TrainJourneyDetails.class,
+				columns = {
+						@ColumnResult(name = "maChuyenTau", type = String.class),
+						@ColumnResult(name = "soHieuTau", type = String.class),
+						@ColumnResult(name = "tenChuyenTau", type = String.class),
+						@ColumnResult(name = "hanhTrinh", type = String.class),
+						@ColumnResult(name = "ngayKhoiHanh", type = String.class),
+						@ColumnResult(name = "thoiGian", type = String.class),
+						@ColumnResult(name = "cuLy", type = Double.class),
+						@ColumnResult(name = "tongHanhKhach", type = String.class)
+				}
+		)
+)
 public class TrainJourneyDetails implements Serializable {
 	private String maChuyenTau;
 	private String soHieuTau;
@@ -13,8 +33,7 @@ public class TrainJourneyDetails implements Serializable {
 	private String tongHanhKhach;
 
 	public TrainJourneyDetails(String maChuyenTau, String soHieuTau, String tenChuyenTau, String hanhTrinh,
-			String ngayKhoiHanh, String thoiGian, double cuLy, String tongHanhKhach) {
-		super();
+							   String ngayKhoiHanh, String thoiGian, double cuLy, String tongHanhKhach) {
 		this.maChuyenTau = maChuyenTau;
 		this.soHieuTau = soHieuTau;
 		this.tenChuyenTau = tenChuyenTau;
@@ -91,9 +110,8 @@ public class TrainJourneyDetails implements Serializable {
 
 	@Override
 	public String toString() {
-		return "TrainJourneyDetails [maChuyenTau=" + maChuyenTau + ", soHieuTau=" + soHieuTau + ", tenChuyenTau="
-				+ tenChuyenTau + ", hanhTrinh=" + hanhTrinh + ", ngayKhoiHanh=" + ngayKhoiHanh + ", thoiGian="
-				+ thoiGian + ", cuLy=" + cuLy + ", tongHanhKhach=" + tongHanhKhach + "]";
+		return "TrainJourneyDetails [maChuyenTau=" + maChuyenTau + ", soHieuTau=" + soHieuTau + ", tenChuyenTau=" +
+				tenChuyenTau + ", hanhTrinh=" + hanhTrinh + ", ngayKhoiHanh=" + ngayKhoiHanh + ", thoiGian=" +
+				thoiGian + ", cuLy=" + cuLy + ", tongHanhKhach=" + tongHanhKhach + "]";
 	}
-
 }

@@ -7,6 +7,7 @@ import utils.HibernateUtil;
 
 import java.time.LocalDate;
 import java.util.List;
+import jakarta.persistence.Query;
 
 public class EmployeeDAO {
 	private EntityManager em;
@@ -79,17 +80,41 @@ public class EmployeeDAO {
 	}
 
 	public String addNewEmployee(Employee newEmployee) {
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
 			em.getTransaction().begin();
-			em.persist(newEmployee);
+
+			// Insert employee using native SQL, letting the DB generate the ID
+			Query query = em.createNativeQuery("""
+            INSERT INTO Employee 
+                (FullName, Gender, DateOfBirth, Email, PhoneNumber, Role, StartingDate, ImageSource)
+            OUTPUT INSERTED.EmployeeID
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """);
+
+			query.setParameter(1, newEmployee.getFullName());
+			query.setParameter(2, newEmployee.isGender());
+			query.setParameter(3, newEmployee.getDateOfBirth());
+			query.setParameter(4, newEmployee.getEmail());
+			query.setParameter(5, newEmployee.getPhoneNumber());
+			query.setParameter(6, newEmployee.getRole());
+			query.setParameter(7, newEmployee.getStartingDate());
+			query.setParameter(8, newEmployee.getImageSource());
+
+			// Get the generated EmployeeID from OUTPUT
+			String generatedEmployeeID = (String) query.getSingleResult();
+
 			em.getTransaction().commit();
-			return newEmployee.getEmployeeID();
+			return generatedEmployeeID;
+
 		} catch (Exception e) {
 			if (em.getTransaction().isActive()) {
 				em.getTransaction().rollback();
 			}
 			e.printStackTrace();
 			return null;
+		} finally {
+			em.close();
 		}
 	}
 

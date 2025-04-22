@@ -1,15 +1,25 @@
 package entity;
 
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
+@SqlResultSetMapping(
+		name = "CoachTypeTotalIncomeMapping",
+		classes = @ConstructorResult(
+				targetClass = CoachTypeTotalIncome.class,
+				columns = {
+						@ColumnResult(name = "CoachType", type = String.class),
+						@ColumnResult(name = "TotalTicketIncome", type = BigDecimal.class)
+				}
+		)
+)
 public class CoachTypeTotalIncome implements Serializable {
 
 	private String coachType;
 	private BigDecimal coachTypeTotalIncome;
 
 	public CoachTypeTotalIncome(String coachType, BigDecimal coachTypeTotalIncome) {
-		super();
 		this.coachType = coachType;
 		this.coachTypeTotalIncome = coachTypeTotalIncome;
 	}
@@ -34,5 +44,4 @@ public class CoachTypeTotalIncome implements Serializable {
 	public String toString() {
 		return "CoachTypeTotalIncome [coachType=" + coachType + ", coachTypeTotalIncome=" + coachTypeTotalIncome + "]";
 	}
-
 }

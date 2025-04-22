@@ -1,150 +1,120 @@
 package dao;
 
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-
-import connectDB.ConnectDB;
 import entity.Customer;
 import entity.Employee;
 import entity.Order;
 import entity.TrainJourney;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
+import utils.HibernateUtil;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public class OrderDAO {
 
-	private ConnectDB connectDB;
-
-	public OrderDAO() {
-		connectDB = ConnectDB.getInstance();
-		connectDB.connect();
-	}
-
 	public int getTicketCountByOrderID(String orderID) {
-		String query = "SELECT COUNT(*) AS TicketCount FROM Ticket WHERE OrderID = ?";
+		EntityManager em = HibernateUtil.getEntityManager();
 		int ticketCount = 0;
-		Connection connection = connectDB.getConnection();
-		PreparedStatement statement = null;
-		ResultSet rs = null;
-
 		try {
-			statement = connection.prepareStatement(query);
-			statement.setString(1, orderID);
-
-			rs = statement.executeQuery();
-
-			if (rs.next()) {
-				ticketCount = rs.getInt("TicketCount");
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+			Query query = em.createNativeQuery("SELECT COUNT(*) AS TicketCount FROM Ticket WHERE OrderID = ?");
+			query.setParameter(1, orderID);
+			ticketCount = ((Number) query.getSingleResult()).intValue();
+		} finally {
+			em.close();
 		}
 		return ticketCount;
 	}
 
 	public Order getOrderByID(String orderID) {
-		String query = "SELECT * FROM [Order] WHERE OrderID = ?";
+		EntityManager em = HibernateUtil.getEntityManager();
 		Order order = null;
-		Connection connection = connectDB.getConnection();
-		PreparedStatement statement = null;
-		ResultSet rs = null;
-
 		try {
-			statement = connection.prepareStatement(query);
-			statement.setString(1, orderID);
+			// Querying for the Order entity by orderID using TypedQuery for type safety
+			TypedQuery<Order> query = em.createQuery("SELECT o FROM Order o WHERE o.orderID = :orderID", Order.class);
+			query.setParameter("orderID", orderID);
+			order = query.getSingleResult();
 
-			rs = statement.executeQuery();
+			// Hibernate will automatically load the related Customer, TrainJourney, and Employee entities
+			// because they are mapped as @ManyToOne relationships in the Order entity.
 
-			if (rs.next()) {
-				LocalDateTime orderDate = rs.getTimestamp("OrderDate").toLocalDateTime();
-				String note = rs.getString("Note");
-				LocalTime timeRemaining = rs.getTime("TimeRemaining").toLocalTime();
-				String orderStatus = rs.getString("OrderStatus");
-
-				// Lấy thông tin từ các bảng liên quan
-				Customer customer = (new CustomerDAO()).getCustomerByID(rs.getString("CustomerID"));
-//				TrainJourney trainJourney = (new TrainJourneyDAO()).getTrainJourneyByID(rs.getString("TrainJourneyID"));
-//				Employee employee = (new EmployeeDAO()).getEmployeeByID(rs.getString("EmployeeID"));
-
-				// Khởi tạo đối tượng Order
-				order = new Order(orderID);
-				order.setOrderDate(orderDate);
-				order.setNote(note);
-				order.setTimeRemaining(timeRemaining);
-				order.setOrderStatus(orderStatus);
-				order.setCustomer(customer);
-//				order.setTrainJourney(trainJourney);
-//				order.setEmployee(employee);
-			}
-		} catch (SQLException e) {
+		} catch (NoResultException e) {
+			// If no result is found, log or handle this scenario gracefully
+			System.out.println("Order with ID " + orderID + " not found.");
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			em.close();
 		}
 		return order;
 	}
 
 	public String addOrder(LocalDate orderDate, String note, String orderStatus, Customer customer,
-			TrainJourney trainJourney, Employee employee) {
-		Connection connection = connectDB.getConnection();
-		String insertSQL = "insert into [order] (OrderDate, Note, TimeRemaining, OrderStatus, TaxID, CustomerID, TrainJourneyID, EmployeeID) OUTPUT inserted.orderID values (?, ?, ?, ?, ?, ?, ?, ?)";
+						   TrainJourney trainJourney, Employee employee) {
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement s = connection.prepareStatement(insertSQL);
-			s.setDate(1, Date.valueOf(orderDate));
-			s.setString(2, note);
-			s.setTime(3, Time.valueOf(LocalTime.of(12, 0)));
-			s.setString(4, orderStatus);
-			s.setString(5, "Tax001");
-			s.setString(6, customer.getCustomerID());
-			s.setString(7, trainJourney.getTrainJourneyID());
-			s.setString(8, employee.getEmployeeID());
+			em.getTransaction().begin();
 
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				return rs.getString(1);
+			// Prepare the SQL query to insert a new Order record and return the generated OrderID
+			Query query = em.createNativeQuery("""
+    INSERT INTO [Order] 
+        (OrderDate, Note, TimeRemaining, OrderStatus, CustomerID, TrainJourneyID, EmployeeID, TaxID)
+    OUTPUT INSERTED.OrderID
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+""");
+
+
+			// Set parameters for the query
+			query.setParameter(1, LocalDateTime.of(orderDate, LocalTime.of(12, 0))); // Set order date with time
+			query.setParameter(2, note);
+			query.setParameter(3, LocalTime.of(12, 0)); // Set default time remaining
+			query.setParameter(4, orderStatus);
+			query.setParameter(5, customer.getCustomerID()); // Assuming customer has a getCustomerID() method
+			query.setParameter(6, trainJourney.getTrainJourneyID()); // Assuming trainJourney has a getTrainJourneyID() method
+			query.setParameter(7, employee.getEmployeeID()); // Assuming employee has a getEmployeeID() method
+			query.setParameter(8, "Tax001"); // Example TaxID, replace as needed
+
+			// Get the generated OrderID from OUTPUT
+			String generatedOrderID = (String) query.getSingleResult();
+
+			em.getTransaction().commit();
+			return generatedOrderID; // Return the generated OrderID
+
+		} catch (Exception e) {
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
 			}
-		} catch (SQLException e) {
 			e.printStackTrace();
+			return null;
+		} finally {
+			em.close();
 		}
-
-		return null;
 	}
 
 	public int getNumberOfOrderWithService(int monthValue, int year) {
-		Connection connection = connectDB.getConnection();
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement s = connection
-					.prepareStatement("SELECT dbo.GetOrdersWithService(?, ?) AS OrdersWithService");
-			s.setInt(1, monthValue);
-			s.setInt(2, year);
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				return rs.getInt("OrdersWithService");
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+			Query query = em.createNativeQuery("SELECT dbo.GetOrdersWithService(?, ?)");
+			query.setParameter(1, monthValue);
+			query.setParameter(2, year);
+			return ((Number) query.getSingleResult()).intValue();
+		} finally {
+			em.close();
 		}
-		return -1;
 	}
 
 	public int getNumberOfOrderWithoutService(int monthValue, int year) {
-		Connection connection = connectDB.getConnection();
+		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			PreparedStatement s = connection
-					.prepareStatement("SELECT dbo.GetOrdersWithoutService(?, ?) AS OrdersWithoutService");
-			s.setInt(1, monthValue);
-			s.setInt(2, year);
-			ResultSet rs = s.executeQuery();
-			if (rs.next()) {
-				return rs.getInt("OrdersWithoutService");
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+			Query query = em.createNativeQuery("SELECT dbo.GetOrdersWithoutService(?, ?)");
+			query.setParameter(1, monthValue);
+			query.setParameter(2, year);
+			return ((Number) query.getSingleResult()).intValue();
+		} finally {
+			em.close();
 		}
-		return -1;
 	}
-
 }

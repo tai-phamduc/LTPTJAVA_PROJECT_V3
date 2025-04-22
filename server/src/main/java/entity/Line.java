@@ -2,11 +2,21 @@ package entity;
 
 import java.io.Serializable;
 import java.util.Objects;
+import jakarta.persistence.*;
 
+@Entity
+@Table(name = "Line")
 public class Line implements Serializable {
 
+	@Id
+	@Column(name = "LineID", length = 12)
 	private String lineID;
+
+	@Column(name = "LineName", nullable = false, length = 255)
 	private String lineName;
+
+	public Line() {
+	}
 
 	public Line(String lineID, String lineName) {
 		super();
@@ -14,11 +24,11 @@ public class Line implements Serializable {
 		this.lineName = lineName;
 	}
 
-    public Line(String lineID) {
+	public Line(String lineID) {
 		this.lineID = lineID;
-    }
+	}
 
-    public String getLineID() {
+	public String getLineID() {
 		return lineID;
 	}
 
@@ -55,5 +65,4 @@ public class Line implements Serializable {
 		Line other = (Line) obj;
 		return Objects.equals(lineID, other.lineID);
 	}
-
 }

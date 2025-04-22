@@ -73,7 +73,7 @@ public class ComponentTicketDetail extends JPanel {
 		soGiayToTextField.setEditable(false);
 
 		String trainNumber = ticket.getTicket().getTrainJourney().getTrain().getTrainNumber();
-		String trainJourneyName = ticket.getTicket().getTrainJourney().getTraInJourneyName();
+		String trainJourneyName = ticket.getTicket().getTrainJourney().getTrainJourneyName();
 		String departureDateTime = ticket.getDepatureDateTimeToString();
 		String coachNumber = ticket.getCoach().getCoachNumber() + "";
 		String seatNumber = ticket.getSeat().getSeatNumber() + "";

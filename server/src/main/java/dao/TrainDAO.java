@@ -1,96 +1,85 @@
 package dao;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.Query;
-import jakarta.persistence.TypedQuery;
-import utils.HibernateUtil;
 import entity.Train;
 import entity.TrainDetails;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
+import jakarta.persistence.Query;
+import jakarta.persistence.EntityTransaction;
+import utils.HibernateUtil;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class TrainDAO {
 
 	public List<TrainDetails> getAllTrainDetails() {
 		EntityManager em = HibernateUtil.getEntityManager();
-		List<TrainDetails> trainDetailsList = new ArrayList<>();
-
+		List<TrainDetails> list = new ArrayList<>();
 		try {
+			// Use the named SQL result set mapping for TrainDetails
 			Query query = em.createNativeQuery(
-					"SELECT TrainID, TrainNumber, NumberOfCoaches, Capacity, " +
-							"NumberOfCoachTypes, CoachTypes, Status FROM dbo.GetAllTrainDetails()");
+					"SELECT TrainID, TrainNumber, NumberOfCoaches, Capacity, NumberOfCoachTypes, CoachTypes, Status FROM dbo.GetAllTrainDetails()",
+					"TrainDetailsMapping"
+			);
 
-			List<Object[]> results = query.getResultList();
-
-			for (Object[] row : results) {
-				String trainID = (String) row[0];
-				String trainNumber = (String) row[1];
-				int numberOfCoaches = (int) row[2];
-				int capacity = (int) row[3];
-				int numberOfCoachTypes = (int) row[4];
-				String coachTypes = (String) row[5];
-				String status = (String) row[6];
-
-				trainDetailsList.add(new TrainDetails(
-						trainID, trainNumber, numberOfCoaches, capacity,
-						numberOfCoachTypes, coachTypes, status
-				));
-			}
+			// Get the result list, which will be automatically mapped to TrainDetails
+			list = query.getResultList();
 		} finally {
 			em.close();
 		}
-		return trainDetailsList;
+		return list;
 	}
 
 	public String addNewTrain(Train train) {
 		EntityManager em = HibernateUtil.getEntityManager();
-		jakarta.persistence.EntityTransaction tx = null;
-		String generatedTrainID = null;
-
 		try {
-			tx = em.getTransaction();
-			tx.begin();
+			em.getTransaction().begin();
 
-			em.persist(train);
+			Query query = em.createNativeQuery("""
+			INSERT INTO Train (TrainNumber, Status)
+			OUTPUT INSERTED.TrainID
+			VALUES (?, ?)
+		""");
 
-			tx.commit();
-			generatedTrainID = train.getTrainID();
+			query.setParameter(1, train.getTrainNumber());
+			query.setParameter(2, train.getStatus());
+
+			String generatedTrainID = (String) query.getSingleResult();
+
+			em.getTransaction().commit();
+			return generatedTrainID;
 		} catch (Exception e) {
-			if (tx != null && tx.isActive()) {
-				tx.rollback();
+			if (em.getTransaction().isActive()) {
+				em.getTransaction().rollback();
 			}
 			e.printStackTrace();
+			return null;
 		} finally {
 			em.close();
 		}
-		return generatedTrainID;
 	}
+
 
 	public int deleteTrainByID(String trainID) {
 		EntityManager em = HibernateUtil.getEntityManager();
-		jakarta.persistence.EntityTransaction tx = null;
-		int rowsAffected = 0;
-
+		EntityTransaction tx = em.getTransaction();
 		try {
-			tx = em.getTransaction();
 			tx.begin();
-
-			Query query = em.createQuery("DELETE FROM Train t WHERE t.trainID = :trainID");
-			query.setParameter("trainID", trainID);
-			rowsAffected = query.executeUpdate();
-
-			tx.commit();
-		} catch (Exception e) {
-			if (tx != null && tx.isActive()) {
-				tx.rollback();
+			Train train = em.find(Train.class, trainID);
+			if (train != null) {
+				em.remove(train);
+				tx.commit();
+				return 1;
 			}
+			return 0;
+		} catch (Exception e) {
+			if (tx.isActive()) tx.rollback();
 			e.printStackTrace();
 			return -1;
 		} finally {
 			em.close();
 		}
-		return rowsAffected;
 	}
 
 	public Train getTrainByID(String trainID) {
@@ -105,12 +94,12 @@ public class TrainDAO {
 	public int getNumberOfCoaches(Train train) {
 		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			Query query = em.createQuery(
-					"SELECT COUNT(c.coachID) FROM Coach c WHERE c.train.trainID = :trainID");
-			query.setParameter("trainID", train.getTrainID());
-
-			Long count = (Long) query.getSingleResult();
-			return count != null ? count.intValue() : 0;
+			Query query = em.createNativeQuery(
+					"SELECT COUNT(c.CoachID) AS NumberOfCoaches FROM Train t LEFT JOIN Coach c ON t.TrainID = c.TrainID WHERE t.TrainID = ? GROUP BY t.TrainID, t.TrainNumber"
+			);
+			query.setParameter(1, train.getTrainID());
+			Object result = query.getSingleResult();
+			return ((Number) result).intValue();
 		} catch (Exception e) {
 			e.printStackTrace();
 			return -1;
@@ -121,20 +110,14 @@ public class TrainDAO {
 
 	public boolean updateTrain(Train train) {
 		EntityManager em = HibernateUtil.getEntityManager();
-		jakarta.persistence.EntityTransaction tx = null;
-
+		EntityTransaction tx = em.getTransaction();
 		try {
-			tx = em.getTransaction();
 			tx.begin();
-
 			em.merge(train);
-
 			tx.commit();
 			return true;
 		} catch (Exception e) {
-			if (tx != null && tx.isActive()) {
-				tx.rollback();
-			}
+			if (tx.isActive()) tx.rollback();
 			e.printStackTrace();
 			return false;
 		} finally {
@@ -144,41 +127,30 @@ public class TrainDAO {
 
 	public List<TrainDetails> getTrainDetailsByTrainNumber(String trainNumberToFind) {
 		EntityManager em = HibernateUtil.getEntityManager();
-		List<TrainDetails> trainDetailsList = new ArrayList<>();
-
+		List<TrainDetails> list = new ArrayList<>();
 		try {
 			Query query = em.createNativeQuery(
-					"SELECT TrainID, TrainNumber, NumberOfCoaches, Capacity, " +
-							"NumberOfCoachTypes, CoachTypes, Status FROM dbo.GetAllTrainDetails() " +
-							"WHERE TrainNumber LIKE ?1");
-			query.setParameter(1, "%" + trainNumberToFind + "%");
+					"SELECT TrainID, TrainNumber, NumberOfCoaches, Capacity, NumberOfCoachTypes, CoachTypes, Status " +
+							"FROM dbo.GetAllTrainDetails() WHERE TrainNumber LIKE ?",
+					"TrainDetailsMapping" // Use the mapping defined above
+			);
+			query.setParameter(1, "%" + trainNumberToFind + "%");  // Set parameter by index (1)
 
-			List<Object[]> results = query.getResultList();
-
-			for (Object[] row : results) {
-				String trainID = (String) row[0];
-				String trainNumber = (String) row[1];
-				int numberOfCoaches = (int) row[2];
-				int capacity = (int) row[3];
-				int numberOfCoachTypes = (int) row[4];
-				String coachTypes = (String) row[5];
-				String status = (String) row[6];
-
-				trainDetailsList.add(new TrainDetails(
-						trainID, trainNumber, numberOfCoaches, capacity,
-						numberOfCoachTypes, coachTypes, status
-				));
-			}
+			// Get the result list, which will be automatically mapped to TrainDetails
+			list = query.getResultList();
+		} catch (Exception e) {
+			e.printStackTrace();
 		} finally {
 			em.close();
 		}
-		return trainDetailsList;
+		return list;
 	}
+
+
 	public List<Train> getAllTrain() {
 		EntityManager em = HibernateUtil.getEntityManager();
 		try {
-			TypedQuery<Train> query = em.createQuery(
-					"SELECT t FROM Train t", Train.class);
+			TypedQuery<Train> query = em.createQuery("SELECT t FROM Train t", Train.class);
 			return query.getResultList();
 		} finally {
 			em.close();
